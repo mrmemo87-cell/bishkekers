@@ -1,0 +1,491 @@
+// Bishkekers Telegram bot
+// - customers: phone verification, points card, history, invites, partner list
+// - cashiers: till (code + bill -> redeem/earn), owners: daily/monthly reports
+// - admin (owner of Bishkekers): add partners, partner overview, demo reset, alerts
+import { createClient } from "jsr:@supabase/supabase-js@2";
+
+const SITE = "https://mrmemo87-cell.github.io/bishkekers/";
+const BOT = "bishkekers_bot";
+const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+// ---------- telegram helpers ----------
+const token = () => Deno.env.get("BISHKEKERS_BOT_TOKEN") ?? "";
+const tg = (method: string, body: unknown) =>
+  fetch(`https://api.telegram.org/bot${token()}/${method}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }).then((r) => r.json()).catch(() => ({}));
+
+const esc = (s: unknown) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const som = (n: unknown) => Math.round(Number(n ?? 0)).toLocaleString("ru-RU").replace(/,/g, " ");
+const pl = (n: unknown) => {
+  const a = Math.abs(Math.round(Number(n ?? 0))) % 100, b = a % 10;
+  return a > 10 && a < 20 ? "баллов" : b === 1 ? "балл" : b >= 2 && b <= 4 ? "балла" : "баллов";
+};
+const send = (chat_id: number, text: string, extra: Record<string, unknown> = {}) =>
+  tg("sendMessage", { chat_id, text, parse_mode: "HTML", disable_web_page_preview: true, ...extra });
+const edit = (chat_id: number, message_id: number, text: string, extra: Record<string, unknown> = {}) =>
+  tg("editMessageText", { chat_id, message_id, text, parse_mode: "HTML", disable_web_page_preview: true, ...extra });
+const rpc = async (fn: string, args: Record<string, unknown> = {}) => (await db.rpc(fn, args)).data as any;
+
+// ---------- keyboards ----------
+const K = {
+  card: "💳 Моя карта", history: "📜 История", invite: "🎁 Пригласить друга", partners: "📍 Партнёры",
+  till: "🧾 Новый чек", today: "📊 Сегодня", month: "📅 Месяц", cancel: "✖️ Отмена",
+};
+const shareKeyboard = {
+  reply_markup: { keyboard: [[{ text: "📱 Подтвердить номер", request_contact: true }]], resize_keyboard: true, one_time_keyboard: true },
+};
+const customerKeyboard = {
+  reply_markup: { keyboard: [[{ text: K.card }, { text: K.history }], [{ text: K.invite }, { text: K.partners }]], resize_keyboard: true, is_persistent: true },
+};
+const staffKeyboard = {
+  reply_markup: {
+    keyboard: [[{ text: K.till }], [{ text: K.today }, { text: K.month }], [{ text: K.card }, { text: K.partners }]],
+    resize_keyboard: true, is_persistent: true,
+  },
+};
+const cancelKeyboard = { reply_markup: { keyboard: [[{ text: K.cancel }]], resize_keyboard: true } };
+
+async function homeKeyboard(tgId: number) {
+  const st = await rpc("bk_staff", { p_tg: tgId });
+  return st ? staffKeyboard : customerKeyboard;
+}
+
+// ---------- secrets ----------
+let cachedSecret = "";
+async function secret(): Promise<string> {
+  if (!cachedSecret) cachedSecret = (await rpc("bk_webhook_secret")) ?? "";
+  return cachedSecret;
+}
+
+// ---------- owner alerts ----------
+async function alertOwner(event: string, p: Record<string, any>) {
+  if (!p?.admin) return;
+  const admin = Number(p.admin);
+  const who = `<b>${esc(p.name)}</b> · ${esc(p.phone)}${p.district ? " · " + esc(p.district) : ""}`;
+  if (event === "business_new") {
+    await send(admin, `🏪 <b>New business application</b>\n\n${esc(p.business_name || "(no name)")} — ${esc(p.business_type || "")}\nContact: ${who}\n\nPhone not verified yet. Businesses so far: ${p.businesses}`);
+  } else if (event === "business_verified") {
+    await send(admin, `✅ <b>Business verified its number</b>\n${esc(p.business_name || "")} — ${who}`);
+  } else if (event === "user_verified") {
+    const n = Number(p.users);
+    if (n <= 50 || n % 50 === 0) {
+      await send(admin, `🙋 New verified user #${n}: ${who}${p.referred_by ? "\nInvited by code " + esc(p.referred_by) : ""}\n\nProgress: ${n} / 10 000`);
+    }
+  }
+}
+
+// ---------- views ----------
+function bar(n: number, goal: number, width = 10) {
+  const filled = Math.max(0, Math.min(width, Math.round((n / goal) * width)));
+  return "▰".repeat(filled) + "▱".repeat(width - filled);
+}
+
+function cardText(c: any) {
+  const lines = [
+    `💳 <b>Карта Bishkekers</b>`,
+    ``,
+    `Код для кассы:  <code>${esc(c.code)}</code>`,
+    `Баланс:  <b>${som(c.available)}</b> ${pl(c.available)}  (1 балл = 1 сом)`,
+  ];
+  if (!c.activated && Number(c.locked) > 0) {
+    lines.push(``, `🔒 <b>${som(c.locked)}</b> приветственных баллов откроются, когда нас станет 10 000`);
+    lines.push(`${bar(Number(c.users), 10000)}  ${som(c.users)} / 10 000`);
+  }
+  lines.push(``, `Покажи код на кассе партнёра — копи и трать баллы.`);
+  if (Number(c.invited) > 0) lines.push(`👥 Друзей по твоей ссылке: ${c.invited}`);
+  return lines.join("\n");
+}
+
+const KIND: Record<string, string> = { welcome: "🎁 Приветственные", earn: "➕ Начислено", redeem: "➖ Списано", referral: "👥 За друга", adjust: "✏️ Корректировка", expire: "⌛ Сгорели" };
+
+function historyText(rows: any[]) {
+  if (!rows?.length) return "📜 Пока нет операций. Покажи свой код на кассе партнёра, чтобы начать копить баллы.";
+  const fmt = new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", timeZone: "Asia/Bishkek" });
+  return ["📜 <b>Последние операции</b>", ""].concat(rows.map((r) => {
+    const pts = Number(r.points);
+    const where = r.partner ? ` · ${esc(r.partner)}${r.is_demo ? " (демо)" : ""}` : "";
+    return `${fmt.format(new Date(r.created_at))}  ${KIND[r.kind] ?? r.kind}  <b>${pts > 0 ? "+" : ""}${pts}</b>${where}`;
+  })).join("\n");
+}
+
+function reportText(r: any, period: string) {
+  if (!r) return "Нет данных.";
+  const until = new Date(r.trial_until).toLocaleDateString("ru-RU", { timeZone: "Asia/Bishkek" });
+  const trial = new Date(r.trial_until) > new Date();
+  return [
+    `${period === "month" ? "📅" : "📊"} <b>${esc(r.partner)}</b> — ${period === "month" ? "этот месяц" : "сегодня"}${r.demo ? " (демо)" : ""}`,
+    ``,
+    `Чеков: <b>${r.bills}</b> · Клиентов: <b>${r.customers}</b>`,
+    `Продажи клиентам Bishkekers: <b>${som(r.sales)} сом</b>`,
+    `Скидка баллами: ${som(r.redeemed)} сом`,
+    `Начислено клиентам: ${som(r.issued)} ${pl(r.issued)}`,
+    ``,
+    r.demo
+      ? `🧪 Демо-режим: комиссия не начисляется`
+      : trial
+      ? `💚 Бесплатный период до ${until} — комиссия 0 сом (без него было бы ${som(r.commission_trial)} сом)`
+      : `Комиссия Bishkekers: <b>${som(r.commission)} сом</b>`,
+  ].join("\n");
+}
+
+const TILL_ERR: Record<string, string> = {
+  not_staff: "Вы не подключены к заведению.",
+  partner_inactive: "Заведение сейчас не активно в Bishkekers.",
+  bad_bill: "Сумма чека должна быть от 10 до 100 000 сом.",
+  no_customer: "Клиент с таким кодом не найден. Проверьте код.",
+  not_verified: "Клиент ещё не подтвердил номер. Попросите его открыть @" + BOT + ".",
+  self: "Нельзя проводить чек на свой собственный код.",
+  duplicate: "Такой чек уже проведён только что. Если это новый чек — подождите минуту.",
+  too_many: "Слишком много чеков этого клиента за сутки. Свяжитесь с Bishkekers.",
+};
+
+// ---------- till ----------
+async function tillPreview(chat: number, staffTg: number, code: string, bill: number) {
+  const p = await rpc("bk_till_preview", { p_staff: staffTg, p_code: code, p_bill: bill });
+  await rpc("bk_state_set", { p_tg: staffTg, p_state: null, p_data: null });
+  if (!p?.ok) {
+    await send(chat, `⚠️ ${TILL_ERR[p?.err] ?? "Ошибка. Попробуйте ещё раз."}`, staffKeyboard);
+    return;
+  }
+  const c = code.toUpperCase();
+  const rows: any[] = [];
+  if (p.max_redeem > 0) {
+    rows.push([{ text: `✅ Списать ${p.max_redeem} → к оплате ${som(bill - p.max_redeem)} сом`, callback_data: `t|${c}|${bill}|${p.max_redeem}` }]);
+  }
+  rows.push([{ text: `Без списания → ${som(bill)} сом`, callback_data: `t|${c}|${bill}|0` }]);
+  rows.push([{ text: "✖️ Отмена", callback_data: "x" }]);
+  await send(chat, [
+    `🧾 <b>Чек ${som(bill)} сом</b>${p.demo ? "  · демо" : ""}`,
+    ``,
+    `👤 ${esc(p.first_name)} · баланс <b>${som(p.available)}</b> ${pl(p.available)}`,
+    p.max_redeem > 0 ? `Можно списать до <b>${p.max_redeem}</b> баллов` : `Списать пока нечего — клиент получит баллы за покупку`,
+  ].join("\n"), { reply_markup: { inline_keyboard: rows } });
+  await send(chat, "Выберите вариант 👆", staffKeyboard);
+}
+
+async function tillCommit(chat: number, msgId: number, staffTg: number, code: string, bill: number, redeem: number) {
+  const r = await rpc("bk_till_commit", { p_staff: staffTg, p_code: code, p_bill: bill, p_redeem: redeem });
+  if (!r?.ok) {
+    await edit(chat, msgId, `⚠️ ${TILL_ERR[r?.err] ?? "Ошибка. Чек не проведён."}`);
+    return;
+  }
+  await edit(chat, msgId, [
+    `✅ <b>Чек проведён</b>${r.demo ? "  · демо" : ""}`,
+    ``,
+    `💵 К оплате: <b>${som(r.cash)} сом</b>`,
+    `Чек ${som(r.bill)} · списано ${r.redeem} · начислено +${r.earn}`,
+    `👤 ${esc(r.first_name)} · новый баланс ${som(r.balance)}`,
+  ].join("\n"));
+  if (r.customer_tg) {
+    await send(Number(r.customer_tg), [
+      `🧾 <b>${esc(r.partner)}</b>${r.demo ? " (демо)" : ""} · ${som(r.bill)} сом`,
+      r.redeem > 0 ? `➖ ${r.redeem} ${pl(r.redeem)} списано (скидка ${r.redeem} сом)` : null,
+      `➕ ${r.earn} ${pl(r.earn)} начислено`,
+      r.bonus > 0 ? `👥 +${r.bonus} ${pl(r.bonus)} — бонус за приглашение!` : null,
+      ``,
+      `Баланс: <b>${som(r.balance)}</b> ${pl(r.balance)} 💛`,
+    ].filter((x) => x !== null).join("\n"));
+  }
+  if (r.referrer_tg && r.bonus > 0) {
+    await send(Number(r.referrer_tg), `🎉 <b>+${r.bonus} ${pl(r.bonus)}!</b>\nТвой друг ${esc(r.first_name)} сделал первую покупку у партнёра Bishkekers. Спасибо, что зовёшь друзей!`);
+  }
+}
+
+// ---------- admin ----------
+async function adminCommand(chat: number, from: number, text: string) {
+  if (text.startsWith("/addpartner")) {
+    const m = text.replace("/addpartner", "").split("|").map((s) => s.trim());
+    const name = m[0], cat = (m[1] || "").toLowerCase();
+    if (!name || !["food", "retail"].includes(cat)) {
+      await send(chat, "Usage: <code>/addpartner Name | food</code>\n(food = cafés, restaurants, salons, flowers · retail = pharmacies, markets)");
+      return true;
+    }
+    const p = await rpc("bk_admin_add_partner", { p_admin: from, p_name: name, p_category: cat });
+    if (!p?.ok) { await send(chat, "Not allowed."); return true; }
+    const until = new Date(p.trial_until).toLocaleDateString("en-GB", { timeZone: "Asia/Bishkek" });
+    await send(chat, [
+      `🏪 <b>Partner added:</b> ${esc(p.name)} (${cat})`,
+      `Earn ${p.earn}% · Pay with points up to ${p.redeem}% · Commission ${p.commission}% · Free until ${until}`,
+      ``,
+      `Send this link to the <b>owner</b> (they open it once in Telegram):`,
+      `https://t.me/${BOT}?start=p_${p.join_token}`,
+      ``,
+      `Link for <b>cashiers</b> (owner can also get it later with /staff):`,
+      `https://t.me/${BOT}?start=p_${p.staff_token}`,
+    ].join("\n"));
+    return true;
+  }
+  if (text === "/partners") {
+    const list = await rpc("bk_admin_partners", { p_admin: from });
+    if (!list) return false;
+    const lines = (list as any[]).map((p) =>
+      `${p.is_demo ? "🧪" : p.active ? "🟢" : "⚪️"} <b>${esc(p.name)}</b> (${p.category}) · staff ${p.staff}\n   this month: ${p.bills} bills · ${som(p.sales)} som · commission due ${som(p.commission)}`);
+    await send(chat, ["🏪 <b>Partners</b>", ""].concat(lines.length ? lines : ["No partners yet."]).join("\n"));
+    return true;
+  }
+  if (text === "/resetdemo") {
+    const n = await rpc("bk_admin_reset_demo", { p_admin: from });
+    if (n === -1 || n === null) return false;
+    await send(chat, `🧹 Demo cleared: ${n} demo ledger rows removed. Real data untouched.`);
+    return true;
+  }
+  if (text === "/admin") {
+    const ok = await rpc("bk_admin_partners", { p_admin: from });
+    if (!ok) return false;
+    await send(chat, [
+      "🛠 <b>Admin commands</b>",
+      "/stats — verified users and businesses",
+      "/partners — partners and this month's numbers",
+      "/addpartner Name | food — add a partner, get owner + cashier links",
+      "/resetdemo — clear demo till transactions",
+    ].join("\n"));
+    return true;
+  }
+  return false;
+}
+
+// ---------- main ----------
+Deno.serve(async (req) => {
+  const url = new URL(req.url);
+  const sec = await secret();
+
+  // one-time setup: ?setup=<secret>
+  if (url.searchParams.has("setup")) {
+    if (!sec || url.searchParams.get("setup") !== sec) return new Response("forbidden", { status: 403 });
+    if (!token()) return new Response("BISHKEKERS_BOT_TOKEN is not set", { status: 500 });
+    const hook = `${Deno.env.get("SUPABASE_URL")}/functions/v1/bishkekers-bot`;
+    const a = await tg("setWebhook", { url: hook, secret_token: sec, allowed_updates: ["message", "callback_query"] });
+    const b = await tg("setMyCommands", {
+      commands: [
+        { command: "card", description: "Моя карта и баланс" },
+        { command: "history", description: "История баллов" },
+        { command: "invite", description: "Пригласить друга" },
+        { command: "partners", description: "Где тратить баллы" },
+      ],
+    });
+    const c = await tg("setMyDescription", {
+      description: "Bishkekers — баллы и акции 1+1 в Бишкеке. Подтверди номер, получи карту и копи баллы у партнёров.",
+    });
+    const d = await tg("setMyShortDescription", { short_description: "Баллы и акции 1+1 в Бишкеке" });
+    return Response.json({ webhook: a?.ok, commands: b?.ok, description: c?.ok, short: d?.ok });
+  }
+
+  // new business application ping from the page
+  if (url.searchParams.has("biz")) {
+    const tok = url.searchParams.get("biz") ?? "";
+    if (/^[0-9a-f]{24}$/.test(tok)) {
+      const data = await rpc("bk_claim_business_alert", { p_token: tok });
+      if (data) await alertOwner("business_new", data);
+    }
+    return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*" } });
+  }
+
+  // telegram webhook
+  if (req.method !== "POST" || !sec || req.headers.get("x-telegram-bot-api-secret-token") !== sec) {
+    return new Response("ok");
+  }
+  const update = await req.json().catch(() => ({}));
+
+  try {
+    // ---- inline buttons (till confirm) ----
+    const cq = update.callback_query;
+    if (cq) {
+      const chat = cq.message?.chat?.id as number, msgId = cq.message?.message_id as number, from = cq.from?.id as number;
+      await tg("answerCallbackQuery", { callback_query_id: cq.id });
+      const d = String(cq.data ?? "");
+      if (d === "x") { await edit(chat, msgId, "✖️ Чек отменён."); return new Response("ok"); }
+      const m = d.match(/^t\|([A-Z0-9]{6})\|(\d+(?:\.\d+)?)\|(\d+)$/);
+      if (m) {
+        await edit(chat, msgId, "⏳ Проводим чек…");
+        await tillCommit(chat, msgId, from, m[1], Number(m[2]), Number(m[3]));
+      }
+      return new Response("ok");
+    }
+
+    const msg = update.message;
+    if (!msg?.chat?.id || msg.chat.type !== "private") return new Response("ok");
+    const chat = msg.chat.id as number;
+    const from = msg.from?.id as number;
+
+    // ---- phone verification ----
+    if (msg.contact) {
+      if (msg.contact.user_id !== from) {
+        await send(chat, "Пожалуйста, отправь <b>свой</b> номер — нажми кнопку ниже 👇", shareKeyboard);
+        return new Response("ok");
+      }
+      const r = await rpc("bk_tg_contact", { p_tg: from, p_phone: msg.contact.phone_number });
+      if (r?.ok) {
+        const link = `${SITE}?ref=${r.code}`;
+        if (r.already) {
+          await send(chat, `Твой номер уже подтверждён ✅`, await homeKeyboard(from));
+        } else if (r.kind === "business") {
+          await send(chat, `Готово, номер подтверждён ✅\n\nСпасибо за заявку! Мы свяжемся с вами в ближайшее время.`, await homeKeyboard(from));
+        } else {
+          await send(chat, `Готово, ${esc(r.name)}! Номер подтверждён ✅\nТы засчитан в счётчик 🎉`, await homeKeyboard(from));
+          const c = await rpc("bk_card", { p_tg: from });
+          if (c) await send(chat, cardText(c));
+          await send(chat, `Зови друзей — бонус получите оба:\n${link}`);
+        }
+        if (!r.already && r.id) {
+          const p = await rpc("bk_notify_payload", { p_id: r.id });
+          await alertOwner(r.kind === "business" ? "business_verified" : "user_verified", p);
+        }
+      } else if (r?.reason === "not_kg") {
+        await send(chat, "Сейчас мы принимаем только номера Кыргызстана (+996).", { reply_markup: { remove_keyboard: true } });
+      } else if (r?.reason === "phone_taken") {
+        await send(chat, "Этот номер уже записан в Bishkekers. Если это ошибка — напиши нам в Instagram @bishkekers.");
+      } else {
+        await send(chat, `Сначала запишись на сайте, а потом нажми там «Подтвердить в Telegram»:\n${SITE}`, { reply_markup: { remove_keyboard: true } });
+      }
+      return new Response("ok");
+    }
+
+    const text: string = (msg.text ?? "").trim();
+
+    // ---- deep links ----
+    if (text.startsWith("/start")) {
+      const payload = text.split(" ")[1]?.trim() ?? "";
+      if (payload.startsWith("p_")) {
+        const name = [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(" ");
+        const j = await rpc("bk_join_partner", { p_tg: from, p_token: payload.slice(2), p_name: name });
+        if (j?.ok) {
+          await send(chat, [
+            `🏪 <b>Добро пожаловать в Bishkekers!</b>`,
+            `Вы подключены к заведению <b>${esc(j.partner)}</b> как ${j.role === "owner" ? "владелец" : "кассир"}.`,
+            ``,
+            `<b>Как провести чек:</b>`,
+            `1. Нажмите «${K.till}»`,
+            `2. Введите код клиента и сумму — можно одной строкой: <code>A3F9K2 1500</code>`,
+            `3. Выберите «Списать» или «Без списания» — готово.`,
+            j.role === "owner" ? `\nОтчёты: «${K.today}» и «${K.month}». Ссылка для кассиров: /staff` : ``,
+          ].join("\n"), staffKeyboard);
+        } else {
+          await send(chat, "Ссылка недействительна. Свяжитесь с Bishkekers.");
+        }
+        return new Response("ok");
+      }
+      if (/^[0-9a-f]{24}$/.test(payload)) {
+        const r = await rpc("bk_tg_start", { p_tg: from, p_token: payload });
+        if (r?.found && r.verified) {
+          await send(chat, `Твой номер уже подтверждён ✅`, await homeKeyboard(from));
+          const c = await rpc("bk_card", { p_tg: from });
+          if (c) await send(chat, cardText(c));
+        } else if (r?.found) {
+          await send(chat, `Привет, ${esc(r.name)}! 👋\n\nОсталось одно действие: нажми кнопку ниже, чтобы подтвердить номер. Так мы знаем, что ты настоящий человек, и засчитаем тебя в счётчик.`, shareKeyboard);
+        } else {
+          await send(chat, `Не нашли твою запись. Запишись на сайте:\n${SITE}`);
+        }
+        return new Response("ok");
+      }
+      const c = await rpc("bk_card", { p_tg: from });
+      if (c) {
+        await send(chat, `С возвращением, ${esc(c.name)}! 👋`, await homeKeyboard(from));
+        await send(chat, cardText(c));
+      } else {
+        const st = await rpc("bk_staff", { p_tg: from });
+        if (st) await send(chat, `Заведение: <b>${esc(st.partner)}</b>. Нажмите «${K.till}», чтобы провести чек.`, staffKeyboard);
+        else await send(chat, `Привет! Это Bishkekers — баллы и акции 1+1 в Бишкеке 🧡\n\nЕсли ты уже записался на сайте, нажми кнопку ниже, чтобы подтвердить номер. Если ещё нет — вот ссылка:\n${SITE}`, shareKeyboard);
+      }
+      return new Response("ok");
+    }
+
+    // ---- admin ----
+    if (text.startsWith("/") && (await adminCommand(chat, from, text))) return new Response("ok");
+    if (text === "/stats") {
+      const st = await rpc("bk_stats");
+      await send(chat, `📊 Verified users: <b>${st?.users ?? 0}</b> / 10 000\nVerified businesses: <b>${st?.businesses ?? 0}</b>`);
+      return new Response("ok");
+    }
+
+    // ---- cancel ----
+    if (text === K.cancel || text === "/cancel") {
+      await rpc("bk_state_set", { p_tg: from, p_state: null, p_data: null });
+      await send(chat, "Отменено.", await homeKeyboard(from));
+      return new Response("ok");
+    }
+
+    // ---- staff: till & reports ----
+    const staff = await rpc("bk_staff", { p_tg: from });
+    if (staff) {
+      // one-line shortcut: CODE AMOUNT
+      const quick = text.match(/^([A-Za-z0-9]{6})\s+(\d{2,6})$/);
+      if (quick) { await tillPreview(chat, from, quick[1], Number(quick[2])); return new Response("ok"); }
+
+      if (text === K.till || text === "/till") {
+        await rpc("bk_state_set", { p_tg: from, p_state: "code", p_data: {} });
+        await send(chat, "🧾 Введите <b>код клиента</b> (6 символов).\nМожно сразу код и сумму: <code>A3F9K2 1500</code>", cancelKeyboard);
+        return new Response("ok");
+      }
+      if (text === K.today || text === K.month || text === "/today" || text === "/month") {
+        const period = text === K.month || text === "/month" ? "month" : "today";
+        const r = await rpc("bk_partner_report", { p_staff: from, p_period: period });
+        await send(chat, reportText(r, period), staffKeyboard);
+        return new Response("ok");
+      }
+      if (text === "/staff" && staff.role === "owner") {
+        const t = await rpc("bk_owner_staff_token", { p_tg: from });
+        await send(chat, t
+          ? `👥 Ссылка для ваших кассиров — отправьте её им, они откроют её в Telegram:\nhttps://t.me/${BOT}?start=p_${t}`
+          : "Не удалось получить ссылку.", staffKeyboard);
+        return new Response("ok");
+      }
+      const state = await rpc("bk_state_get", { p_tg: from });
+      if (state?.state === "code") {
+        const code = text.replace(/\s/g, "").toUpperCase();
+        if (!/^[A-Z0-9]{6}$/.test(code)) { await send(chat, "Код — это 6 символов, например <code>A3F9K2</code>. Попробуйте ещё раз.", cancelKeyboard); return new Response("ok"); }
+        await rpc("bk_state_set", { p_tg: from, p_state: "bill", p_data: { code } });
+        await send(chat, `Код <code>${code}</code> ✔️\nТеперь введите <b>сумму чека</b> в сомах:`, cancelKeyboard);
+        return new Response("ok");
+      }
+      if (state?.state === "bill") {
+        const bill = Number(text.replace(/[^\d]/g, ""));
+        if (!bill) { await send(chat, "Введите сумму числом, например <code>1500</code>.", cancelKeyboard); return new Response("ok"); }
+        await tillPreview(chat, from, state.data.code, bill);
+        return new Response("ok");
+      }
+    }
+
+    // ---- customer ----
+    if (text === K.card || text === "/card") {
+      const c = await rpc("bk_card", { p_tg: from });
+      if (c) await send(chat, cardText(c), await homeKeyboard(from));
+      else await send(chat, `Сначала запишись и подтверди номер:\n${SITE}`, shareKeyboard);
+      return new Response("ok");
+    }
+    if (text === K.history || text === "/history") {
+      await send(chat, historyText(await rpc("bk_history", { p_tg: from })), await homeKeyboard(from));
+      return new Response("ok");
+    }
+    if (text === K.invite || text === "/invite") {
+      const c = await rpc("bk_card", { p_tg: from });
+      if (!c) { await send(chat, `Сначала запишись:\n${SITE}`); return new Response("ok"); }
+      const link = `${SITE}?ref=${c.code}`;
+      await send(chat, `🎁 <b>Пригласи друга — получите по 100 баллов оба</b>\nБонус начисляется после первой покупки друга у партнёра.\n\nТвоя ссылка:\n${link}`, {
+        reply_markup: { inline_keyboard: [[{ text: "📨 Отправить другу", url: `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Баллы и акции 1+1 в Бишкеке — записывайся, бонус получим оба!")}` }]] },
+      });
+      return new Response("ok");
+    }
+    if (text === K.partners || text === "/partners") {
+      const list = (await rpc("bk_partner_list")) as any[];
+      if (!list?.length) {
+        await send(chat, "📍 Первые партнёры в Джале появятся совсем скоро. Мы сообщим тебе здесь! 🔔", await homeKeyboard(from));
+      } else {
+        const icon = (c: string) => (c === "food" ? "☕" : "🛒");
+        await send(chat, ["📍 <b>Партнёры Bishkekers</b>", ""].concat(list.map((p) =>
+          `${icon(p.category)} <b>${esc(p.name)}</b> — копишь ${Number(p.earn)}%, тратишь до ${Number(p.redeem)}% чека`)).join("\n"), await homeKeyboard(from));
+      }
+      return new Response("ok");
+    }
+
+    // fallback
+    const c = await rpc("bk_card", { p_tg: from });
+    if (c) await send(chat, "Выбери действие в меню 👇", await homeKeyboard(from));
+    else await send(chat, `Чтобы подтвердить номер, нажми кнопку ниже 👇\nСайт: ${SITE}`, shareKeyboard);
+  } catch (_e) {
+    // never make Telegram retry forever
+  }
+  return new Response("ok");
+});
