@@ -427,7 +427,7 @@ document.getElementById("f").addEventListener("submit", async e => {
     showDone(r);
   } catch (x) {
     const m = (x && x.message) || "";
-    err.textContent = m.includes("bad_phone") ? "Проверь номер: 9 цифр после +996."
+    err.textContent = m.includes("bad_phone") ? "Похоже, номер неверный. Укажи свой настоящий мобильный номер."
       : m.includes("busy") ? "Сейчас много записей. Попробуй через минуту."
       : "Не получилось отправить. Проверь интернет и попробуй ещё раз.";
     go.disabled = false; go.textContent = kind === "business" ? "Стать партнёром →" : "Записаться →";
