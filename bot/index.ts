@@ -46,6 +46,7 @@ const staffKeyboard = {
     resize_keyboard: true, is_persistent: true,
   },
 };
+const cardButtons = { reply_markup: { inline_keyboard: [[{ text: "🔄 Новый код для кассы", callback_data: "nc" }]] } };
 const cancelKeyboard = { reply_markup: { keyboard: [[{ text: K.cancel }]], resize_keyboard: true } };
 
 async function homeKeyboard(tgId: number) {
@@ -54,10 +55,8 @@ async function homeKeyboard(tgId: number) {
 }
 
 // ---------- secrets ----------
-let cachedSecret = "";
 async function secret(): Promise<string> {
-  if (!cachedSecret) cachedSecret = (await rpc("bk_webhook_secret")) ?? "";
-  return cachedSecret;
+  return (await rpc("bk_webhook_secret")) ?? "";
 }
 
 // ---------- owner alerts ----------
@@ -88,6 +87,7 @@ function cardText(c: any) {
     `💳 <b>Карта Bishkekers</b>`,
     ``,
     `Код для кассы:  <code>${esc(c.code)}</code>`,
+    `<i>Списание баллов всегда подтверждаешь ты сам — здесь, в боте.</i>`,
     `Баланс:  <b>${som(c.available)}</b> ${pl(c.available)}  (1 балл = 1 сом)`,
   ];
   if (!c.activated && Number(c.locked) > 0) {
@@ -140,6 +140,8 @@ const TILL_ERR: Record<string, string> = {
   self: "Нельзя проводить чек на свой собственный код.",
   duplicate: "Такой чек уже проведён только что. Если это новый чек — подождите минуту.",
   too_many: "Слишком много чеков этого клиента за сутки. Свяжитесь с Bishkekers.",
+  rate: "Слишком много проверок кодов за час. Попробуйте позже.",
+  nothing_to_redeem: "У клиента нет баллов для списания.",
 };
 
 // ---------- till ----------
@@ -153,21 +155,46 @@ async function tillPreview(chat: number, staffTg: number, code: string, bill: nu
   const c = code.toUpperCase();
   const rows: any[] = [];
   if (p.max_redeem > 0) {
-    rows.push([{ text: `✅ Списать ${p.max_redeem} → к оплате ${som(bill - p.max_redeem)} сом`, callback_data: `t|${c}|${bill}|${p.max_redeem}` }]);
+    rows.push([{ text: `💳 Списать ${p.max_redeem} → к оплате ${som(bill - p.max_redeem)} сом`, callback_data: `r|${c}|${bill}|${p.max_redeem}` }]);
   }
-  rows.push([{ text: `Без списания → ${som(bill)} сом`, callback_data: `t|${c}|${bill}|0` }]);
+  rows.push([{ text: `Без списания → ${som(bill)} сом`, callback_data: `e|${c}|${bill}` }]);
   rows.push([{ text: "✖️ Отмена", callback_data: "x" }]);
   await send(chat, [
     `🧾 <b>Чек ${som(bill)} сом</b>${p.demo ? "  · демо" : ""}`,
     ``,
     `👤 ${esc(p.first_name)} · баланс <b>${som(p.available)}</b> ${pl(p.available)}`,
-    p.max_redeem > 0 ? `Можно списать до <b>${p.max_redeem}</b> баллов` : `Списать пока нечего — клиент получит баллы за покупку`,
+    p.max_redeem > 0 ? `Можно списать до <b>${p.max_redeem}</b> баллов — клиент подтвердит в своём Telegram` : `Списать пока нечего — клиент получит баллы за покупку`,
   ].join("\n"), { reply_markup: { inline_keyboard: rows } });
   await send(chat, "Выберите вариант 👆", staffKeyboard);
 }
 
-async function tillCommit(chat: number, msgId: number, staffTg: number, code: string, bill: number, redeem: number) {
-  const r = await rpc("bk_till_commit", { p_staff: staffTg, p_code: code, p_bill: bill, p_redeem: redeem });
+async function tillEarn(chat: number, msgId: number, staffTg: number, code: string, bill: number) {
+  const r = await rpc("bk_till_earn", { p_staff: staffTg, p_code: code, p_bill: bill });
+  await finishBill(chat, msgId, r);
+}
+
+async function tillRedeemRequest(chat: number, msgId: number, staffTg: number, code: string, bill: number, redeem: number) {
+  const q = await rpc("bk_redeem_request", { p_staff: staffTg, p_code: code, p_bill: bill, p_redeem: redeem, p_chat: chat, p_msg: msgId });
+  if (!q?.ok) { await edit(chat, msgId, `⚠️ ${TILL_ERR[q?.err] ?? "Ошибка. Попробуйте ещё раз."}`); return; }
+  await edit(chat, msgId, [
+    `⏳ <b>Ждём подтверждения клиента</b>${q.demo ? "  · демо" : ""}`,
+    ``,
+    `👤 ${esc(q.first_name)} подтверждает списание <b>${q.redeem}</b> ${pl(q.redeem)} в своём Telegram.`,
+    `Чек ${som(q.bill)} сом → к оплате будет ${som(Number(q.bill) - q.redeem)} сом`,
+    `<i>Ждём до 3 минут.</i>`,
+  ].join("\n"), { reply_markup: { inline_keyboard: [[{ text: `Провести без списания → ${som(q.bill)} сом`, callback_data: `e|${code.toUpperCase()}|${bill}` }]] } });
+  await send(Number(q.customer_tg), [
+    `💳 <b>${esc(q.partner)}</b>${q.demo ? " (демо)" : ""} хочет списать <b>${q.redeem}</b> ${pl(q.redeem)}`,
+    `Чек ${som(q.bill)} сом → ты заплатишь ${som(Number(q.bill) - q.redeem)} сом`,
+    ``,
+    `Подтверди, только если ты сейчас на кассе.`,
+  ].join("\n"), { reply_markup: { inline_keyboard: [[
+    { text: "✅ Да, списать", callback_data: `ra|${q.id}` },
+    { text: "❌ Это не я", callback_data: `rd|${q.id}` },
+  ]] } });
+}
+
+async function finishBill(chat: number, msgId: number, r: any) {
   if (!r?.ok) {
     await edit(chat, msgId, `⚠️ ${TILL_ERR[r?.err] ?? "Ошибка. Чек не проведён."}`);
     return;
@@ -189,9 +216,34 @@ async function tillCommit(chat: number, msgId: number, staffTg: number, code: st
       `Баланс: <b>${som(r.balance)}</b> ${pl(r.balance)} 💛`,
     ].filter((x) => x !== null).join("\n"));
   }
-  if (r.referrer_tg && r.bonus > 0) {
-    await send(Number(r.referrer_tg), `🎉 <b>+${r.bonus} ${pl(r.bonus)}!</b>\nТвой друг ${esc(r.first_name)} сделал первую покупку у партнёра Bishkekers. Спасибо, что зовёшь друзей!`);
+  if (r.referrer_tg && r.ref_bonus > 0) {
+    await send(Number(r.referrer_tg), `🎉 <b>+${r.ref_bonus} ${pl(r.ref_bonus)}!</b>\nТвой друг ${esc(r.first_name)} сделал первую покупку у партнёра Bishkekers. Спасибо, что зовёшь друзей!`);
   }
+}
+
+// ---------- fraud warnings ----------
+const FLAG: Record<string, string> = {
+  declined_redeem: "❌ Customer declined a points spend (possible stolen code)",
+  code_guessing: "🔍 Many wrong customer codes (possible guessing)",
+  repeat_pair: "🔁 Same cashier + customer, 3 bills in 24h",
+  night_bill: "🌙 Bill late at night",
+  big_bill: "💰 Very large bill",
+};
+const flagLine = (f: any) => `${FLAG[f.kind] ?? f.kind}${f.partner ? " · " + esc(f.partner) : ""}${f.detail ? " · " + esc(f.detail) : ""}`;
+
+async function maybeDailyReport() {
+  const r = await rpc("bk_admin_daily_report");
+  if (!r?.admin) return;
+  const flags = (r.flags ?? []) as any[];
+  await send(Number(r.admin), [
+    `☀️ <b>Bishkekers — daily report</b>`,
+    ``,
+    `New verified users: <b>${r.new_users}</b> (total ${som(r.total_users)} / 10 000)`,
+    `New business applications: <b>${r.new_business}</b>`,
+    `Bills at partners: <b>${r.bills}</b> · ${som(r.sales)} som`,
+    ``,
+    flags.length ? `🚩 <b>${flags.length} warning(s):</b>\n` + flags.slice(0, 10).map(flagLine).join("\n") : `🚩 No warnings. 👌`,
+  ].join("\n"));
 }
 
 // ---------- admin ----------
@@ -232,6 +284,12 @@ async function adminCommand(chat: number, from: number, text: string) {
     await send(chat, `🧹 Demo cleared: ${n} demo ledger rows removed. Real data untouched.`);
     return true;
   }
+  if (text === "/flags") {
+    const f = await rpc("bk_admin_flags", { p_admin: from });
+    if (!f) return false;
+    await send(chat, ["🚩 <b>Latest warnings</b>", ""].concat((f as any[]).length ? (f as any[]).map(flagLine) : ["Nothing suspicious. 👌"]).join("\n"));
+    return true;
+  }
   if (text === "/admin") {
     const ok = await rpc("bk_admin_partners", { p_admin: from });
     if (!ok) return false;
@@ -240,6 +298,7 @@ async function adminCommand(chat: number, from: number, text: string) {
       "/stats — verified users and businesses",
       "/partners — partners and this month's numbers",
       "/addpartner Name | food — add a partner, get owner + cashier links",
+      "/flags — latest fraud warnings",
       "/resetdemo — clear demo till transactions",
     ].join("\n"));
     return true;
@@ -288,6 +347,7 @@ Deno.serve(async (req) => {
     return new Response("ok");
   }
   const update = await req.json().catch(() => ({}));
+  try { await maybeDailyReport(); } catch (_e) { /* ignore */ }
 
   try {
     // ---- inline buttons (till confirm) ----
@@ -297,10 +357,45 @@ Deno.serve(async (req) => {
       await tg("answerCallbackQuery", { callback_query_id: cq.id });
       const d = String(cq.data ?? "");
       if (d === "x") { await edit(chat, msgId, "✖️ Чек отменён."); return new Response("ok"); }
-      const m = d.match(/^t\|([A-Z0-9]{6})\|(\d+(?:\.\d+)?)\|(\d+)$/);
+      let m = d.match(/^e\|([A-Z0-9]{6})\|(\d+(?:\.\d+)?)$/);
+      if (m) { await edit(chat, msgId, "⏳ Проводим чек…"); await tillEarn(chat, msgId, from, m[1], Number(m[2])); return new Response("ok"); }
+      m = d.match(/^r\|([A-Z0-9]{6})\|(\d+(?:\.\d+)?)\|(\d+)$/);
+      if (m) { await tillRedeemRequest(chat, msgId, from, m[1], Number(m[2]), Number(m[3])); return new Response("ok"); }
+      m = d.match(/^r([ad])\|([0-9a-f-]{36})$/);
       if (m) {
-        await edit(chat, msgId, "⏳ Проводим чек…");
-        await tillCommit(chat, msgId, from, m[1], Number(m[2]), Number(m[3]));
+        const approve = m[1] === "a";
+        const a = await rpc("bk_redeem_answer", { p_customer_tg: from, p_id: m[2], p_approve: approve });
+        if (!a?.ok) {
+          const why = a?.err === "expired" ? "⌛ Время подтверждения истекло. Попроси кассира провести чек ещё раз."
+            : a?.err === "already" ? "Этот запрос уже обработан." : "Запрос не найден.";
+          await edit(chat, msgId, why);
+          if (a?.err === "expired" && a.cashier_chat) await edit(Number(a.cashier_chat), Number(a.cashier_msg), "⌛ Клиент не подтвердил списание за 3 минуты. Проведите чек заново.");
+          return new Response("ok");
+        }
+        if (!approve) {
+          await edit(chat, msgId, "❌ Списание отклонено. Баллы на месте.\n\nЕсли ты не был на кассе — смени код: 💳 Моя карта → 🔄 Новый код.");
+          if (a.cashier_chat) await edit(Number(a.cashier_chat), Number(a.cashier_msg), "❌ <b>Клиент отклонил списание.</b>", { reply_markup: { inline_keyboard: [[{ text: `Провести без списания → ${som(a.bill)} сом`, callback_data: `e|${a.code}|${Number(a.bill)}` }]] } });
+          return new Response("ok");
+        }
+        await edit(chat, msgId, "✅ Списание подтверждено.");
+        await finishBill(Number(a.cashier_chat), Number(a.cashier_msg), a);
+        return new Response("ok");
+      }
+      if (d === "nc") {
+        const code = await rpc("bk_new_card_code", { p_tg: from });
+        await edit(chat, msgId, code ? `🔄 Готово! Новый код для кассы: <code>${code}</code>\nСтарый код больше не работает.` : "Не удалось сменить код.");
+        return new Response("ok");
+      }
+      m = d.match(/^sr\|(\d+)$/);
+      if (m) {
+        const ok = await rpc("bk_staff_remove", { p_owner: from, p_tg: Number(m[1]) });
+        await edit(chat, msgId, ok ? "🗑 Кассир удалён. Он больше не может проводить чеки." : "Не удалось удалить.");
+        return new Response("ok");
+      }
+      if (d === "sn") {
+        const t = await rpc("bk_owner_staff_token", { p_tg: from, p_rotate: true });
+        await edit(chat, msgId, t ? `🔄 Новая ссылка для кассиров (старая больше не работает):\nhttps://t.me/${BOT}?start=p_${t}` : "Не удалось.");
+        return new Response("ok");
       }
       return new Response("ok");
     }
@@ -359,7 +454,7 @@ Deno.serve(async (req) => {
             `<b>Как провести чек:</b>`,
             `1. Нажмите «${K.till}»`,
             `2. Введите код клиента и сумму — можно одной строкой: <code>A3F9K2 1500</code>`,
-            `3. Выберите «Списать» или «Без списания» — готово.`,
+            `3. «Без списания» — сразу готово. «Списать» — клиент подтвердит в своём Telegram за пару секунд.`,
             j.role === "owner" ? `\nОтчёты: «${K.today}» и «${K.month}». Ссылка для кассиров: /staff` : ``,
           ].join("\n"), staffKeyboard);
         } else {
@@ -426,10 +521,19 @@ Deno.serve(async (req) => {
         return new Response("ok");
       }
       if (text === "/staff" && staff.role === "owner") {
-        const t = await rpc("bk_owner_staff_token", { p_tg: from });
-        await send(chat, t
-          ? `👥 Ссылка для ваших кассиров — отправьте её им, они откроют её в Telegram:\nhttps://t.me/${BOT}?start=p_${t}`
-          : "Не удалось получить ссылку.", staffKeyboard);
+        const list = ((await rpc("bk_staff_list", { p_owner: from })) ?? []) as any[];
+        const t = await rpc("bk_owner_staff_token", { p_tg: from, p_rotate: false });
+        const rows = list.filter((x) => x.role === "cashier").map((x) => [{ text: `🗑 Удалить: ${x.name || x.tg}`, callback_data: `sr|${x.tg}` }]);
+        rows.push([{ text: "🔄 Новая ссылка для кассиров", callback_data: "sn" }]);
+        await send(chat, [
+          `👥 <b>Сотрудники</b>`,
+          ``,
+          ...list.map((x) => `${x.role === "owner" ? "👑" : "🧾"} ${esc(x.name || x.tg)} — чеков за 30 дней: ${x.bills30}`),
+          ``,
+          `Ссылка для новых кассиров:`,
+          `https://t.me/${BOT}?start=p_${t}`,
+          `<i>Если ссылка попала не в те руки — создайте новую.</i>`,
+        ].join("\n"), { reply_markup: { inline_keyboard: rows } });
         return new Response("ok");
       }
       const state = await rpc("bk_state_get", { p_tg: from });
@@ -451,7 +555,7 @@ Deno.serve(async (req) => {
     // ---- customer ----
     if (text === K.card || text === "/card") {
       const c = await rpc("bk_card", { p_tg: from });
-      if (c) await send(chat, cardText(c), await homeKeyboard(from));
+      if (c) await send(chat, cardText(c), cardButtons);
       else await send(chat, `Сначала запишись и подтверди номер:\n${SITE}`, shareKeyboard);
       return new Response("ok");
     }
@@ -462,7 +566,7 @@ Deno.serve(async (req) => {
     if (text === K.invite || text === "/invite") {
       const c = await rpc("bk_card", { p_tg: from });
       if (!c) { await send(chat, `Сначала запишись:\n${SITE}`); return new Response("ok"); }
-      const link = `${SITE}?ref=${c.code}`;
+      const link = `${SITE}?ref=${c.ref}`;
       await send(chat, `🎁 <b>Пригласи друга — получите по 100 баллов оба</b>\nБонус начисляется после первой покупки друга у партнёра.\n\nТвоя ссылка:\n${link}`, {
         reply_markup: { inline_keyboard: [[{ text: "📨 Отправить другу", url: `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Баллы и акции 1+1 в Бишкеке — записывайся, бонус получим оба!")}` }]] },
       });

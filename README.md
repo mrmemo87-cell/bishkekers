@@ -12,4 +12,11 @@ It needs one secret, `BISHKEKERS_BOT_TOKEN`, set in Supabase → Edge Functions 
 
 - Customers: phone verification, points card, history, invites, partner list
 - Cashiers: till (customer code + bill → spend/earn points), owner reports
-- Admin: `/admin`, `/addpartner Name | food`, `/partners`, `/stats`, `/resetdemo`
+- Admin: `/admin`, `/addpartner Name | food`, `/partners`, `/stats`, `/flags`, `/resetdemo`
+
+### Security model
+- Till code (`card_code`) is separate from the invite code (`ref_code`) and can be rotated by the customer.
+- Spending points always needs the customer's approval in Telegram (expires after 3 minutes); earning is one step.
+- Referral bonus only after the friend's first bill of 500+ som; max 10 bonuses per referrer per month.
+- Owner link works once; owners can list/remove cashiers and rotate the cashier link (`/staff`).
+- Max 30 code checks per cashier per hour; warnings (declined spends, code guessing, repeat pairs, night or very large bills) go to the admin daily report and `/flags`.
