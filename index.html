@@ -86,6 +86,9 @@ input:focus,select:focus{border-color:var(--orange)}
 .phone:focus-within{border-color:var(--orange)}
 .phone span{padding:0 0 0 16px;font-weight:800}
 .phone input{border:0;background:none}
+.consent{display:flex;gap:12px;align-items:flex-start;font-weight:600;font-size:13.5px;letter-spacing:0;line-height:1.45;margin:20px 0 0;cursor:pointer}
+.consent input{flex:none;width:22px;height:22px;margin:1px 0 0;accent-color:var(--orange);padding:0}
+.consent a{color:var(--orange);font-weight:800}
 .biz{display:none}.form.is-biz .biz{display:block}
 .form .btn{width:100%;margin-top:24px}
 .note{font-size:12.5px;opacity:.6;margin-top:14px;line-height:1.45}
@@ -249,9 +252,10 @@ footer a{font-weight:800;color:var(--yellow);text-decoration:none}
           <label for="district">Район</label>
           <select id="district"><option>Джал</option><option>Центр</option><option>Асанбай</option><option>Восток-5</option><option>Аламедин-1</option><option>Кок-Жар</option><option>Магистраль</option><option value="other">Другой</option></select>
           <input id="districtOther" placeholder="Напиши свой район" maxlength="60" style="display:none;margin-top:10px">
+          <label class="consent"><input type="checkbox" id="consent"><span>Я согласен(на) на обработку персональных данных и принимаю <a href="privacy.html" target="_blank">политику конфиденциальности</a></span></label>
           <button class="btn" id="go" type="submit">Записаться →</button>
           <div class="err" id="err"></div>
-          <p class="note">Мы используем номер только чтобы сообщить о запуске и начислить баллы. Никакого спама.</p>
+          <p class="note">Мы используем номер только чтобы сообщить о запуске и начислить баллы. Никакого спама. Номер не передаётся заведениям.</p>
         </form>
       </div>
 
@@ -334,7 +338,7 @@ footer a{font-weight:800;color:var(--yellow);text-decoration:none}
   <div class="wrap">
     <p class="disp" style="font-size:20px;font-weight:800">bishkekers</p>
     <p style="margin-top:10px">Instagram: <a href="https://www.instagram.com/bishkekers/" target="_blank" rel="noopener">@bishkekers</a></p>
-    <p style="margin-top:10px;font-size:13px;opacity:.6">© 2026 Bishkekers · Бишкек</p>
+    <p style="margin-top:10px;font-size:13px;opacity:.6">© 2026 Bishkekers · Бишкек · <a href="privacy.html" style="color:inherit;font-weight:600">Политика конфиденциальности</a></p>
   </div>
 </footer>
 
@@ -430,6 +434,7 @@ document.getElementById("f").addEventListener("submit", async e => {
   const btype = bSel.value === "other" ? bOther.value.trim() : bSel.value;
   if (kind === "business" && btype.length < 2) { err.textContent = "Напишите, какой у вас бизнес."; bOther.focus(); return; }
   if (district.length < 2) { err.textContent = "Напиши название своего района."; dOther.focus(); return; }
+  if (!document.getElementById("consent").checked) { err.textContent = "Отметь согласие на обработку данных."; return; }
   const go = document.getElementById("go"); go.disabled = true; go.textContent = "Секунду…";
   try {
     const r = await rpc("bk_signup", {
@@ -437,7 +442,8 @@ document.getElementById("f").addEventListener("submit", async e => {
       p_district: district,
       p_business_name: kind === "business" ? document.getElementById("bname").value.trim() : null,
       p_business_type: kind === "business" ? btype : null,
-      p_ref: ref || null
+      p_ref: ref || null,
+      p_consent: true
     });
     showDone(r);
   } catch (x) {
@@ -454,6 +460,9 @@ function showDone(r) {
   document.getElementById("refBadge").style.display = "none";
   const done = document.getElementById("done"); done.style.display = "block";
   document.getElementById("pos").textContent = fmt(r.position);
+  if (kind === "business" && r.verify) {
+    fetch(SB_URL + "/functions/v1/bishkekers-bot?biz=" + r.verify, { mode: "no-cors" }).catch(() => {});
+  }
   if (r.verify) {
     document.getElementById("tgVerify").href = "https://t.me/bishkekers_bot?start=" + r.verify;
   } else {
