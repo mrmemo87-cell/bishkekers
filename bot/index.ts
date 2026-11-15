@@ -94,7 +94,7 @@ function cardText(c: any) {
     lines.push(``, `🔒 <b>${som(c.locked)}</b> приветственных баллов откроются, когда нас станет 10 000`);
     lines.push(`${bar(Number(c.users), 10000)}  ${som(c.users)} / 10 000`);
   }
-  lines.push(``, `Покажи код на кассе партнёра — копи и трать баллы.`);
+  lines.push(``, `Сканируй QR Bishkekers у партнёра — или назови этот код кассиру.`);
   if (Number(c.invited) > 0) lines.push(`👥 Друзей по твоей ссылке: ${c.invited}`);
   return lines.join("\n");
 }
@@ -102,7 +102,7 @@ function cardText(c: any) {
 const KIND: Record<string, string> = { welcome: "🎁 Приветственные", earn: "➕ Начислено", redeem: "➖ Списано", referral: "👥 За друга", adjust: "✏️ Корректировка", expire: "⌛ Сгорели" };
 
 function historyText(rows: any[]) {
-  if (!rows?.length) return "📜 Пока нет операций. Покажи свой код на кассе партнёра, чтобы начать копить баллы.";
+  if (!rows?.length) return "📜 Пока нет операций. Отсканируй QR Bishkekers у партнёра, чтобы начать копить баллы.";
   const fmt = new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", timeZone: "Asia/Bishkek" });
   return ["📜 <b>Последние операции</b>", ""].concat(rows.map((r) => {
     const pts = Number(r.points);
