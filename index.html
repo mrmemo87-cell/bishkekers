@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bishkekers — баллы и акции 1+1 в Бишкеке</title>
+<meta name="description" content="Копи баллы и трать их в любимых местах Бишкека. Запишись первым — приветственные баллы ждут тебя.">
+<meta name="theme-color" content="#15123B">
+<meta property="og:title" content="Bishkekers — баллы и акции 1+1 в Бишкеке">
+<meta property="og:description" content="Запишись первым — приветственные баллы ждут тебя.">
+<meta property="og:image" content="og.jpg">
+<link rel="icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#15123B; --mid:#221D5C; --sky:#2B2670; --orange:#FF5B23; --cream:#FFF4E6; --yellow:#FFC93C;
+  --r:28px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:Manrope,system-ui,sans-serif;background:var(--navy);color:var(--cream);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+h1,h2,h3,.disp{font-family:Unbounded,Manrope,system-ui,sans-serif;letter-spacing:-.02em;line-height:1.02}
+a{color:inherit}
+.wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+.pill{display:inline-block;font-weight:800;font-size:12px;letter-spacing:.14em;text-transform:uppercase;padding:9px 16px;border-radius:999px}
+.btn{appearance:none;border:0;cursor:pointer;font:800 18px/1 Manrope,sans-serif;padding:20px 26px;border-radius:20px;background:var(--orange);color:var(--cream);
+  box-shadow:0 6px 0 #B83A10;transition:transform .12s, box-shadow .12s;display:inline-flex;align-items:center;justify-content:center;gap:10px;text-decoration:none}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 #B83A10}
+.btn[disabled]{opacity:.6;cursor:wait}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:20;background:rgba(21,18,59,.82);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,244,230,.08)}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+.logo{display:flex;align-items:center;gap:10px;font-family:Unbounded,system-ui,sans-serif;font-weight:800;font-size:18px;text-decoration:none}
+nav .btn{padding:12px 16px;font-size:14px;border-radius:14px;box-shadow:0 4px 0 #B83A10}
+
+/* HERO */
+.hero{position:relative;overflow:hidden;padding:56px 0 0;background:radial-gradient(900px 700px at 70% 10%, #4A3FA8 0%, var(--navy) 62%)}
+.stars i{position:absolute;width:3px;height:3px;border-radius:50%;background:var(--cream);opacity:.7;animation:tw 3s infinite ease-in-out}
+@keyframes tw{50%{opacity:.15}}
+.hero-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:30px;align-items:center;position:relative;z-index:2}
+.hero h1{font-size:clamp(40px,7vw,78px);font-weight:800}
+.hero h1 em{font-style:normal;color:var(--orange)}
+.hero p.lead{font-size:clamp(17px,2.2vw,21px);opacity:.85;margin:22px 0 30px;max-width:520px;line-height:1.45;font-weight:600}
+.sun{position:relative;width:min(420px,80vw);aspect-ratio:1;margin:0 auto;animation:rise 1.4s cubic-bezier(.2,.8,.2,1) both}
+.sun svg{width:100%;height:100%;filter:drop-shadow(0 0 70px rgba(255,91,35,.55))}
+@keyframes rise{from{transform:translateY(80px);opacity:0}}
+.coin{position:absolute;width:44px;height:44px;border-radius:50%;background:var(--yellow);display:grid;place-items:center;color:var(--navy);
+  font:800 18px Unbounded,system-ui,sans-serif;box-shadow:inset 0 -4px 0 rgba(0,0,0,.15);animation:float 5s ease-in-out infinite}
+@keyframes float{50%{transform:translateY(-16px) rotate(12deg)}}
+.ridge{position:relative;z-index:1;display:block;width:100%;height:auto;margin-top:-40px}
+
+/* COUNTER */
+.counter{background:var(--mid);padding:0 0 64px;margin-top:-2px}
+.card{background:rgba(255,244,230,.05);border:1px solid rgba(255,244,230,.12);border-radius:var(--r);padding:28px}
+.count-row{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.big{font-family:Unbounded,system-ui,sans-serif;font-weight:800;font-size:clamp(48px,9vw,88px);line-height:.9;color:var(--yellow)}
+.big small{font-size:.32em;color:var(--cream);opacity:.7;font-weight:600}
+.track{position:relative;height:18px;border-radius:999px;background:rgba(255,244,230,.12);margin:30px 0 46px}
+.fill{position:absolute;inset:0 auto 0 0;width:0;border-radius:999px;background:linear-gradient(90deg,var(--orange),var(--yellow));transition:width 1.6s cubic-bezier(.2,.8,.2,1)}
+.ms{position:absolute;top:50%;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:50%;background:var(--navy);border:5px solid rgba(255,244,230,.25)}
+.ms.on{border-color:var(--yellow);background:var(--orange)}
+.ms b{position:absolute;top:34px;left:50%;transform:translateX(-50%);font:800 14px Unbounded,system-ui,sans-serif;white-space:nowrap;color:var(--cream)}
+.ms span{position:absolute;top:56px;left:50%;transform:translateX(-50%);font-size:12px;opacity:.6;white-space:nowrap}
+
+/* SIGNUP */
+.signup{background:var(--cream);color:var(--navy);padding:80px 0;border-radius:40px 40px 0 0;position:relative}
+.signup h2{font-size:clamp(32px,5vw,54px);font-weight:800}
+.sg-grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:40px;align-items:start}
+.perks{list-style:none;margin-top:26px;display:grid;gap:14px}
+.perks li{display:flex;gap:14px;align-items:center;font-weight:700;font-size:17px}
+.perks i{flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-style:normal;font-size:20px;background:var(--navy);color:var(--yellow)}
+.form{background:#fff;border:3px solid var(--navy);border-radius:var(--r);padding:26px;box-shadow:0 10px 0 var(--navy)}
+.tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--cream);border-radius:16px;padding:5px;margin-bottom:22px}
+.tabs button{border:0;background:none;font:800 15px Manrope,system-ui,sans-serif;padding:13px;border-radius:12px;cursor:pointer;color:var(--navy)}
+.tabs button.on{background:var(--navy);color:var(--cream)}
+label{display:block;font-weight:800;font-size:13px;letter-spacing:.04em;margin:16px 0 8px}
+input,select{width:100%;font:600 17px Manrope,system-ui,sans-serif;padding:16px 16px;border-radius:14px;border:2px solid #E6DCCB;background:#FFFBF5;color:var(--navy);outline:none;transition:border-color .15s}
+input:focus,select:focus{border-color:var(--orange)}
+.phone{display:flex;align-items:center;border:2px solid #E6DCCB;border-radius:14px;background:#FFFBF5}
+.phone:focus-within{border-color:var(--orange)}
+.phone span{padding:0 0 0 16px;font-weight:800}
+.phone input{border:0;background:none}
+.biz{display:none}.form.is-biz .biz{display:block}
+.form .btn{width:100%;margin-top:24px}
+.note{font-size:12.5px;opacity:.6;margin-top:14px;line-height:1.45}
+.err{color:#C42F00;font-weight:700;font-size:14px;margin-top:12px;min-height:1px}
+.ref-badge{display:none;margin-bottom:16px;background:var(--yellow);border-radius:14px;padding:12px 14px;font-weight:800;font-size:14px}
+
+/* SUCCESS */
+.done{display:none;text-align:center}
+.done .ticket{position:relative;background:var(--navy);color:var(--cream);border-radius:24px;padding:26px 22px;margin:22px 0;box-shadow:0 8px 0 var(--orange)}
+.done .ticket:before,.done .ticket:after{content:"";position:absolute;top:50%;width:30px;height:30px;border-radius:50%;background:#fff;transform:translateY(-50%)}
+.done .ticket:before{left:-15px}.done .ticket:after{right:-15px}
+.done .pos{font:800 56px Unbounded,system-ui,sans-serif;color:var(--yellow)}
+.code{font:800 26px Unbounded,system-ui,sans-serif;letter-spacing:.12em;border:2px dashed var(--yellow);border-radius:14px;padding:12px;margin-top:14px;color:var(--yellow)}
+.share{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.share a,.share button{border:0;cursor:pointer;text-decoration:none;font:800 15px Manrope,system-ui,sans-serif;padding:15px;border-radius:14px;color:#fff}
+.wa{background:#1FAF5A}.tg{background:#2A9FD8}.cp{grid-column:1/-1;background:var(--cream)!important;color:var(--navy)!important}
+
+/* HOW */
+.how{background:var(--cream);color:var(--navy);padding:20px 0 90px}
+.how h2{font-size:clamp(30px,4.6vw,48px);font-weight:800;margin-bottom:30px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.step{background:#fff;border:3px solid var(--navy);border-radius:var(--r);padding:26px;box-shadow:0 8px 0 var(--navy)}
+.step .n{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:var(--orange);color:var(--cream);font:800 24px Unbounded,system-ui,sans-serif;margin-bottom:18px}
+.step h3{font-size:22px;margin-bottom:8px}
+.step p{opacity:.75;font-weight:600;line-height:1.45}
+
+/* 1+1 */
+.bogo{background:var(--orange);padding:90px 0;overflow:hidden;position:relative}
+.bogo .wrap{display:grid;grid-template-columns:1fr 1fr;gap:30px;align-items:center}
+.bogo .one{font:800 clamp(110px,20vw,220px)/.85 Unbounded,system-ui,sans-serif;color:var(--cream);letter-spacing:-.06em}
+.bogo h2{font-size:clamp(32px,5vw,56px);color:var(--navy)}
+.bogo p{color:var(--navy);font-weight:700;font-size:18px;margin-top:16px;max-width:440px;line-height:1.45}
+.disc{position:absolute;right:-160px;bottom:-200px;width:560px;height:560px;border-radius:50%;background:var(--yellow)}
+
+/* CATS */
+.cats{background:var(--navy);padding:90px 0}
+.cats h2{font-size:clamp(30px,4.6vw,48px);margin-bottom:28px}
+.tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+.tile{aspect-ratio:1;border-radius:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-weight:800;font-size:15px;transition:transform .2s}
+.tile:hover{transform:translateY(-6px) rotate(-2deg)}
+.tile span{font-size:40px}
+
+/* FAQ */
+.faq{background:var(--cream);color:var(--navy);padding:90px 0}
+.faq h2{font-size:clamp(30px,4.6vw,48px);margin-bottom:26px}
+details{background:#fff;border:3px solid var(--navy);border-radius:20px;margin-bottom:14px;padding:20px 22px}
+summary{font-weight:800;font-size:18px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:14px}
+summary::-webkit-details-marker{display:none}
+summary:after{content:"+";font:800 24px Unbounded,system-ui,sans-serif;color:var(--orange);transition:transform .2s}
+details[open] summary:after{transform:rotate(45deg)}
+details p{margin-top:12px;font-weight:600;opacity:.8;line-height:1.5}
+
+footer{background:var(--navy);padding:50px 0 calc(50px + env(safe-area-inset-bottom));text-align:center;opacity:.85}
+footer a{font-weight:800;color:var(--yellow);text-decoration:none}
+
+/* reveal */
+.rv{opacity:0;transform:translateY(30px);transition:opacity .7s, transform .7s}
+.rv.in{opacity:1;transform:none}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:50}
+
+@media (max-width:860px){
+  .hero-grid,.sg-grid,.bogo .wrap{grid-template-columns:1fr}
+  .hero{padding-top:36px}.sun{width:min(300px,72vw)}
+  .steps{grid-template-columns:1fr}
+  .tiles{grid-template-columns:repeat(3,1fr)}
+  .bogo .one{text-align:center}
+  .ms span{display:none}
+}
+</style>
+</head>
+<body>
+<canvas id="confetti"></canvas>
+
+<nav><div class="wrap">
+  <a class="logo" href="#top"><svg width="36" height="36" viewBox="0 0 200 200"><defs><clipPath id="lc"><circle cx="100" cy="100" r="100"/></clipPath></defs><g clip-path="url(#lc)"><rect width="200" height="200" fill="#FF5B23"/><path d="M0 200 L0 172 L30 156 L52 168 L84 146 L108 162 L136 150 L166 166 L200 154 L200 200 Z" fill="#15123B"/></g><path d="M66 38 h40 c21 0 34 10 34 27 c0 11 -6 19 -16 22 c13 3 21 12 21 26 c0 19 -15 31 -38 31 h-41 Z M87 56 v23 h16 c9 0 14 -4 14 -12 c0 -7 -5 -11 -14 -11 Z M87 96 v27 h19 c10 0 16 -5 16 -14 c0 -9 -6 -13 -16 -13 Z" fill="#FFF4E6" fill-rule="evenodd"/><path d="M155 30 l5 11 l12 1 l-9 8 l3 12 l-11 -6 l-11 6 l3 -12 l-9 -8 l12 -1 Z" fill="#FFC93C"/></svg>bishkekers</a>
+  <a class="btn" href="#join">Записаться</a>
+</div></nav>
+
+<header class="hero" id="top">
+  <div class="stars" id="stars"></div>
+  <div class="wrap hero-grid">
+    <div>
+      <span class="pill" style="background:var(--orange)">Скоро в Бишкеке</span>
+      <h1 style="margin-top:22px">Копи баллы.<br><em>Трать</em> в любимых местах.</h1>
+      <p class="lead">Баллы и акции 1+1 в кафе, аптеках, цветочных и маркетах рядом с домом. Запишись сейчас — приветственные баллы будут ждать тебя на старте.</p>
+      <a class="btn" href="#join">Хочу баллы →</a>
+    </div>
+    <div class="sun">
+      <svg viewBox="0 0 200 200"><defs><clipPath id="hc"><circle cx="100" cy="100" r="100"/></clipPath></defs><g clip-path="url(#hc)"><rect width="200" height="200" fill="#FF5B23"/></g><path d="M66 38 h40 c21 0 34 10 34 27 c0 11 -6 19 -16 22 c13 3 21 12 21 26 c0 19 -15 31 -38 31 h-41 Z M87 56 v23 h16 c9 0 14 -4 14 -12 c0 -7 -5 -11 -14 -11 Z M87 96 v27 h19 c10 0 16 -5 16 -14 c0 -9 -6 -13 -16 -13 Z" fill="#FFF4E6" fill-rule="evenodd"/><path d="M155 30 l5 11 l12 1 l-9 8 l3 12 l-11 -6 l-11 6 l3 -12 l-9 -8 l12 -1 Z" fill="#FFC93C"/></svg>
+      <div class="coin" style="left:-6%;top:18%">★</div>
+      <div class="coin" style="right:-4%;top:58%;animation-delay:-2s;width:36px;height:36px;font-size:15px">+</div>
+      <div class="coin" style="left:8%;bottom:6%;animation-delay:-3.4s;width:30px;height:30px;font-size:13px">★</div>
+    </div>
+  </div>
+  <svg class="ridge" viewBox="0 0 1440 220" preserveAspectRatio="none" aria-hidden="true">
+    <path d="M0 220 L0 140 L160 70 L260 120 L440 20 L580 110 L700 60 L860 150 L1010 40 L1150 120 L1290 70 L1440 130 L1440 220 Z" fill="#221D5C"/>
+    <path d="M440 20 L408 48 L428 45 L442 58 L458 42 L478 52 Z" fill="#FFF4E6"/>
+    <path d="M1010 40 L982 66 L1000 63 L1012 74 L1026 60 L1044 70 Z" fill="#FFF4E6"/>
+    <path d="M700 60 L682 78 L694 76 L702 83 L712 74 L722 79 Z" fill="#FFF4E6"/>
+  </svg>
+</header>
+
+<section class="counter">
+  <div class="wrap">
+    <div class="card rv">
+      <div class="count-row">
+        <div>
+          <span class="pill" style="background:var(--yellow);color:var(--navy)">Баллы ждут активации</span>
+          <div class="big" style="margin-top:18px"><span id="cnt">0</span> <small>из 10 000</small></div>
+        </div>
+        <p style="max-width:380px;font-weight:600;opacity:.85;line-height:1.5">Твои баллы откроются, когда нас станет <b>10 000</b>. Зови друзей — каждый, кто запишется по твоей ссылке, приближает старт.</p>
+      </div>
+      <div class="track" id="track">
+        <div class="fill" id="fill"></div>
+        <div class="ms" data-v="2000" style="left:20%"><b>2 000</b><span>первые акции</span></div>
+        <div class="ms" data-v="5000" style="left:50%"><b>5 000</b><span>новые партнёры</span></div>
+        <div class="ms" data-v="10000" style="left:calc(100% - 14px)"><b>10 000</b><span>баллы открыты</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="signup" id="join">
+  <div class="wrap sg-grid">
+    <div class="rv">
+      <span class="pill" style="background:var(--navy);color:var(--cream)">Список первых</span>
+      <h2 style="margin-top:20px">Запишись — и&nbsp;будь в&nbsp;числе первых</h2>
+      <ul class="perks">
+        <li><i>★</i>Приветственные баллы на старте</li>
+        <li><i>1+1</i>Первым узнаешь об акциях 1+1</li>
+        <li><i>🎁</i>Личная ссылка: зови друзей</li>
+        <li><i>🔒</i>Без спама и без оплаты</li>
+      </ul>
+    </div>
+
+    <div class="form rv" id="form">
+      <div class="ref-badge" id="refBadge">Тебя пригласил друг — вы оба получите бонус 🎁</div>
+      <div id="formBody">
+        <div class="tabs" role="tablist">
+          <button type="button" class="on" data-k="user">Я житель</button>
+          <button type="button" data-k="business">У меня бизнес</button>
+        </div>
+        <form id="f" novalidate>
+          <label for="name" id="nameLbl">Имя</label>
+          <input id="name" autocomplete="given-name" placeholder="Как тебя зовут?" maxlength="80" required>
+          <label for="phone">Телефон</label>
+          <div class="phone"><span>+996</span><input id="phone" type="tel" inputmode="numeric" placeholder="700 123 456" maxlength="13" required></div>
+          <div class="biz">
+            <label for="bname">Название заведения</label>
+            <input id="bname" placeholder="Например, Кофейня «Утро»" maxlength="100">
+            <label for="btype">Тип бизнеса</label>
+            <select id="btype"><option>Кафе / ресторан</option><option>Кофейня</option><option>Аптека</option><option>Магазин / маркет</option><option>Цветы</option><option>Салон красоты</option><option>Одежда</option><option>Другое</option></select>
+          </div>
+          <label for="district">Район</label>
+          <select id="district"><option>Джал</option><option>Центр</option><option>Асанбай</option><option>Восток-5</option><option>Аламедин-1</option><option>Кок-Жар</option><option>Магистраль</option><option>Другой</option></select>
+          <button class="btn" id="go" type="submit">Записаться →</button>
+          <div class="err" id="err"></div>
+          <p class="note">Мы используем номер только чтобы сообщить о запуске и начислить баллы. Никакого спама.</p>
+        </form>
+      </div>
+
+      <div class="done" id="done">
+        <span class="pill" style="background:var(--yellow);color:var(--navy)" id="doneTag">Ты в списке!</span>
+        <div class="ticket">
+          <div style="font-weight:700;opacity:.8" id="posLbl">Твой номер в очереди</div>
+          <div class="pos">#<span id="pos">1</span></div>
+          <div style="font-weight:700;opacity:.8;margin-top:6px" id="codeLbl">Твой код для друзей</div>
+          <div class="code" id="code">——</div>
+        </div>
+        <p style="font-weight:700" id="shareLbl">Отправь ссылку друзьям — бонус получите оба 👇</p>
+        <div class="share">
+          <a class="wa" id="wa" target="_blank" rel="noopener">WhatsApp</a>
+          <a class="tg" id="tg" target="_blank" rel="noopener">Telegram</a>
+          <button class="cp" id="cp" type="button">Скопировать ссылку</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="how">
+  <div class="wrap">
+    <h2 class="rv">Просто как <span style="color:var(--orange)">1·2·3</span></h2>
+    <div class="steps">
+      <div class="step rv"><div class="n">1</div><h3>Регистрируйся</h3><p>Получи приветственные баллы — они откроются на старте.</p></div>
+      <div class="step rv"><div class="n">2</div><h3>Покажи код на кассе</h3><p>Копи баллы с каждой покупки у партнёров Bishkekers.</p></div>
+      <div class="step rv"><div class="n">3</div><h3>Трать баллы</h3><p>В кафе, аптеках, цветочных, маркетах и салонах рядом с домом.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="bogo">
+  <div class="disc"></div>
+  <div class="wrap" style="position:relative">
+    <div class="one rv">1+1</div>
+    <div class="rv">
+      <span class="pill" style="background:var(--navy);color:var(--cream)">Только для Bishkekers</span>
+      <h2 style="margin-top:20px">Второй — в&nbsp;подарок</h2>
+      <p>Эксклюзивные акции 1+1 от заведений города: кофе, десерты, цветы и не только. Их не будет больше нигде.</p>
+    </div>
+  </div>
+</section>
+
+<section class="cats">
+  <div class="wrap">
+    <h2 class="rv">Где тратить <span style="color:var(--orange)">баллы?</span></h2>
+    <div class="tiles rv">
+      <div class="tile" style="background:var(--cream);color:var(--navy)"><span>☕</span>Кафе</div>
+      <div class="tile" style="background:var(--orange)"><span>💐</span>Цветы</div>
+      <div class="tile" style="background:var(--yellow);color:var(--navy)"><span>💊</span>Аптеки</div>
+      <div class="tile" style="background:var(--sky)"><span>🛒</span>Маркеты</div>
+      <div class="tile" style="background:var(--cream);color:var(--navy)"><span>✂️</span>Салоны</div>
+      <div class="tile" style="background:var(--orange)"><span>★</span>И не только</div>
+    </div>
+    <p class="rv" style="margin-top:26px;font-weight:700;opacity:.8">📍 Начинаем с Джала, потом — весь Бишкек.</p>
+  </div>
+</section>
+
+<section class="faq">
+  <div class="wrap">
+    <span class="pill rv" style="background:var(--orange);color:var(--cream)">Без мелкого шрифта</span>
+    <h2 class="rv" style="margin-top:18px">Честно о баллах</h2>
+    <details class="rv"><summary>Сколько стоит регистрация?</summary><p>Нисколько. Регистрация бесплатная.</p></details>
+    <details class="rv"><summary>Баллы — это деньги?</summary><p>Нет. Баллы нельзя вывести или обменять на деньги. Их можно потратить только у партнёров Bishkekers.</p></details>
+    <details class="rv"><summary>Когда откроются баллы?</summary><p>Когда в Bishkekers запишутся 10 000 человек. Следи за счётчиком на этой странице и в нашем Instagram.</p></details>
+    <details class="rv"><summary>Как работает бонус за друзей?</summary><p>После записи ты получишь личную ссылку. Когда друг запишется по ней и сделает первую покупку у партнёра, вы оба получите бонусные баллы.</p></details>
+    <details class="rv"><summary>У меня бизнес. Сколько это стоит?</summary><p>Первые месяцы — бесплатно. Потом вы платите только за клиентов, которые пришли к вам через Bishkekers, без абонплаты. Выберите «У меня бизнес» в форме выше, и мы свяжемся с вами.</p></details>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p class="disp" style="font-size:20px;font-weight:800">bishkekers</p>
+    <p style="margin-top:10px">Instagram: <a href="https://www.instagram.com/bishkekers/" target="_blank" rel="noopener">@bishkekers</a></p>
+    <p style="margin-top:10px;font-size:13px;opacity:.6">© 2026 Bishkekers · Бишкек</p>
+  </div>
+</footer>
+
+<script>
+const SB_URL = "https://lvkmkgjpcbdyzdkbqcgc.supabase.co";
+const SB_KEY = "sb_publishable_yGeVgx7lVGYK4xz8B2IOuw_aCvCnvQK";
+const GOAL = 10000;
+const rpc = (fn, body) => fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json", apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` },
+  body: JSON.stringify(body || {})
+}).then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw j; return j; });
+
+// stars
+const st = document.getElementById("stars");
+for (let i = 0; i < 40; i++) {
+  const s = document.createElement("i");
+  s.style.left = Math.random() * 100 + "%"; s.style.top = Math.random() * 70 + "%";
+  s.style.animationDelay = (-Math.random() * 3) + "s";
+  st.appendChild(s);
+}
+
+// reveal on scroll
+const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { threshold: .15 });
+document.querySelectorAll(".rv").forEach(el => io.observe(el));
+
+// counter
+const fmt = n => n.toLocaleString("ru-RU").replace(/,/g, " ");
+let shown = 0;
+function animateCount(to) {
+  const from = shown, t0 = performance.now(), d = 1400;
+  const step = t => { const p = Math.min(1, (t - t0) / d), e = 1 - Math.pow(1 - p, 3);
+    shown = Math.round(from + (to - from) * e); document.getElementById("cnt").textContent = fmt(shown);
+    if (p < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+  const pct = Math.max(1.5, Math.min(100, to / GOAL * 100));
+  document.getElementById("fill").style.width = pct + "%";
+  document.querySelectorAll(".ms").forEach(m => m.classList.toggle("on", to >= +m.dataset.v));
+}
+function loadStats() { rpc("bk_stats").then(s => animateCount(s.users || 0)).catch(() => {}); }
+loadStats(); setInterval(loadStats, 30000);
+
+// referral
+const params = new URLSearchParams(location.search);
+const ref = (params.get("ref") || "").trim().toUpperCase().slice(0, 12);
+if (ref) document.getElementById("refBadge").style.display = "block";
+
+// tabs
+let kind = "user";
+const form = document.getElementById("form");
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+  kind = b.dataset.k;
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
+  form.classList.toggle("is-biz", kind === "business");
+  document.getElementById("nameLbl").textContent = kind === "business" ? "Ваше имя" : "Имя";
+  document.getElementById("go").textContent = kind === "business" ? "Стать партнёром →" : "Записаться →";
+});
+
+// phone mask
+const ph = document.getElementById("phone");
+ph.addEventListener("input", () => {
+  let d = ph.value.replace(/\D/g, "");
+  if (d.startsWith("996")) d = d.slice(3);
+  if (d.startsWith("0")) d = d.slice(1);
+  d = d.slice(0, 9);
+  ph.value = d.replace(/(\d{3})(\d{0,3})(\d{0,3})/, (m, a, b, c) => [a, b, c].filter(Boolean).join(" "));
+});
+
+// submit
+document.getElementById("f").addEventListener("submit", async e => {
+  e.preventDefault();
+  const err = document.getElementById("err"); err.textContent = "";
+  const name = document.getElementById("name").value.trim();
+  const digits = ph.value.replace(/\D/g, "");
+  if (name.length < 2) { err.textContent = "Напиши своё имя."; return; }
+  if (digits.length !== 9) { err.textContent = "Проверь номер: 9 цифр после +996."; return; }
+  const go = document.getElementById("go"); go.disabled = true; go.textContent = "Секунду…";
+  try {
+    const r = await rpc("bk_signup", {
+      p_kind: kind, p_name: name, p_phone: "+996" + digits,
+      p_district: document.getElementById("district").value,
+      p_business_name: kind === "business" ? document.getElementById("bname").value.trim() : null,
+      p_business_type: kind === "business" ? document.getElementById("btype").value : null,
+      p_ref: ref || null
+    });
+    showDone(r);
+  } catch (x) {
+    const m = (x && x.message) || "";
+    err.textContent = m.includes("bad_phone") ? "Проверь номер: 9 цифр после +996."
+      : m.includes("busy") ? "Сейчас много записей. Попробуй через минуту."
+      : "Не получилось отправить. Проверь интернет и попробуй ещё раз.";
+    go.disabled = false; go.textContent = kind === "business" ? "Стать партнёром →" : "Записаться →";
+  }
+});
+
+function showDone(r) {
+  document.getElementById("formBody").style.display = "none";
+  document.getElementById("refBadge").style.display = "none";
+  const done = document.getElementById("done"); done.style.display = "block";
+  document.getElementById("pos").textContent = fmt(r.position);
+  document.getElementById("code").textContent = r.code;
+  if (kind === "business") {
+    document.getElementById("doneTag").textContent = "Заявка принята!";
+    document.getElementById("posLbl").textContent = "Номер вашей заявки";
+    document.getElementById("shareLbl").textContent = "Мы свяжемся с вами в WhatsApp или Telegram. А пока — расскажите о нас коллегам 👇";
+  } else if (r.existing) {
+    document.getElementById("doneTag").textContent = "Ты уже в списке 🙌";
+  }
+  const link = location.origin + location.pathname + "?ref=" + r.code;
+  const msg = "Я записался в Bishkekers — баллы и акции 1+1 в Бишкеке. Записывайся по моей ссылке, и мы оба получим бонус: " + link;
+  document.getElementById("wa").href = "https://wa.me/?text=" + encodeURIComponent(msg);
+  document.getElementById("tg").href = "https://t.me/share/url?url=" + encodeURIComponent(link) + "&text=" + encodeURIComponent("Баллы и акции 1+1 в Бишкеке — записывайся, бонус получим оба!");
+  const cp = document.getElementById("cp");
+  cp.onclick = () => {
+    const ok = () => { cp.textContent = "Скопировано ✓"; setTimeout(() => cp.textContent = "Скопировать ссылку", 2000); };
+    if (navigator.clipboard) navigator.clipboard.writeText(link).then(ok).catch(() => { prompt("Скопируй ссылку:", link); });
+    else prompt("Скопируй ссылку:", link);
+  };
+  done.scrollIntoView({ behavior: "smooth", block: "center" });
+  burst(); loadStats();
+}
+
+// confetti
+function burst() {
+  const c = document.getElementById("confetti"), x = c.getContext("2d");
+  c.width = innerWidth; c.height = innerHeight;
+  const cols = ["#FF5B23", "#FFC93C", "#FFF4E6", "#2B2670"];
+  const P = Array.from({ length: 140 }, () => ({ x: innerWidth / 2, y: innerHeight / 2, vx: (Math.random() - .5) * 16, vy: -Math.random() * 16 - 4,
+    s: 6 + Math.random() * 6, r: Math.random() * 6, vr: (Math.random() - .5) * .3, c: cols[Math.random() * 4 | 0] }));
+  let t = 0;
+  (function f() {
+    x.clearRect(0, 0, c.width, c.height);
+    P.forEach(p => { p.vy += .45; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+      x.save(); x.translate(p.x, p.y); x.rotate(p.r); x.fillStyle = p.c; x.fillRect(-p.s / 2, -p.s / 2, p.s, p.s * .6); x.restore(); });
+    if (++t < 160) requestAnimationFrame(f); else x.clearRect(0, 0, c.width, c.height);
+  })();
+}
+</script>
+</body>
+</html>
