@@ -206,6 +206,10 @@ async function finishBill(chat: number, msgId: number, r: any) {
     `Чек ${som(r.bill)} · списано ${r.redeem} · начислено +${r.earn}`,
     `👤 ${esc(r.first_name)} · новый баланс ${som(r.balance)}`,
   ].join("\n"));
+  await sendReceipts(r);
+}
+
+async function sendReceipts(r: any) {
   if (r.customer_tg) {
     await send(Number(r.customer_tg), [
       `🧾 <b>${esc(r.partner)}</b>${r.demo ? " (демо)" : ""} · ${som(r.bill)} сом`,
@@ -219,6 +223,83 @@ async function finishBill(chat: number, msgId: number, r: any) {
   if (r.referrer_tg && r.ref_bonus > 0) {
     await send(Number(r.referrer_tg), `🎉 <b>+${r.ref_bonus} ${pl(r.ref_bonus)}!</b>\nТвой друг ${esc(r.first_name)} сделал первую покупку у партнёра Bishkekers. Спасибо, что зовёшь друзей!`);
   }
+}
+
+// ---------- scan-to-pay (customer scans the partner QR, staff confirms) ----------
+async function createClaim(chat: number, from: number, pid: number, bill: number, redeem: number, editMsg?: number) {
+  const c = await rpc("bk_claim_create", { p_tg: from, p_partner: pid, p_bill: bill, p_redeem: redeem });
+  if (!c?.ok) {
+    const why = c?.err === "no_staff" ? "У заведения пока нет подключённых сотрудников. Попроси провести чек по коду."
+      : c?.err === "too_many_claims" ? "Слишком много запросов за час. Попробуй позже."
+      : TILL_ERR[c?.err] ?? "Не получилось. Попробуй ещё раз.";
+    if (editMsg) await edit(chat, editMsg, `⚠️ ${why}`); else await send(chat, `⚠️ ${why}`, await homeKeyboard(from));
+    return;
+  }
+  const body = [
+    `🧾 <b>${esc(c.partner)}</b>${c.demo ? " · демо" : ""}`,
+    `Чек: ${som(c.bill)} сом`,
+    c.redeem > 0 ? `💳 Баллами: −${c.redeem}` : null,
+    `💵 К оплате: <b>${som(c.cash)} сом</b>`,
+    `➕ Начислим: +${c.earn} ${pl(c.earn)}`,
+  ].filter((x) => x !== null).join("\n");
+  const custText = `⏳ <b>Ждём подтверждения официанта или кассира</b>\n\n${body}\n\n<i>Можно показать это сообщение сотруднику.</i>`;
+  const cancelBtn = { reply_markup: { inline_keyboard: [[{ text: "✖️ Отменить", callback_data: `cc|${c.id}` }]] } };
+  let sent: any;
+  if (editMsg) { sent = await edit(chat, editMsg, custText, cancelBtn); }
+  else { sent = await send(chat, custText, cancelBtn); }
+  const cm = sent?.result?.message_id;
+  if (cm) await rpc("bk_claim_msg", { p_claim: c.id, p_chat: chat, p_msg: cm, p_customer: true });
+  if (!editMsg) await send(chat, "👆", await homeKeyboard(from));
+  const staffText = [
+    `🔔 <b>Bishkekers — новый чек</b>${c.demo ? " · демо" : ""}`,
+    ``,
+    `👤 ${esc(c.customer)}`,
+    `Чек: ${som(c.bill)} сом`,
+    c.redeem > 0 ? `💳 Списать баллами: ${c.redeem} (клиент уже подтвердил)` : `Без списания баллов`,
+    `💵 <b>Взять с клиента: ${som(c.cash)} сом</b>`,
+    ``,
+    `Сверьте сумму со счётом 👇`,
+  ].join("\n");
+  for (const tgId of (c.staff ?? []) as number[]) {
+    const m = await send(Number(tgId), staffText, { reply_markup: { inline_keyboard: [[
+      { text: "✅ Подтвердить", callback_data: `ka|${c.id}` },
+      { text: "❌ Сумма неверна", callback_data: `kr|${c.id}` },
+    ]] } });
+    if (m?.result?.message_id) await rpc("bk_claim_msg", { p_claim: c.id, p_chat: Number(tgId), p_msg: m.result.message_id });
+  }
+}
+
+async function editAll(msgs: any[], text: string) {
+  for (const m of msgs ?? []) await edit(Number(m.chat), Number(m.msg), text);
+}
+
+async function answerClaim(chat: number, msgId: number, from: number, id: string, confirm: boolean) {
+  const a = await rpc("bk_claim_answer", { p_staff: from, p_claim: id, p_confirm: confirm });
+  if (!a?.ok) {
+    if (a?.err === "already") {
+      const st: Record<string, string> = { confirmed: "✅ Уже подтверждено", rejected: "❌ Уже отклонено", cancelled: "✖️ Клиент отменил", expired: "⌛ Время вышло" };
+      await edit(chat, msgId, st[a.status] ?? "Уже обработано.");
+    } else if (a?.err === "expired") {
+      await editAll(a.msgs, "⌛ Запрос устарел (больше 20 минут). Клиент может отсканировать QR снова.");
+      if (a.customer_chat) await edit(Number(a.customer_chat), Number(a.customer_msg), "⌛ Сотрудник не успел подтвердить. Отсканируй QR ещё раз.");
+    } else {
+      await edit(chat, msgId, `⚠️ ${TILL_ERR[a?.err] ?? "Ошибка. Попробуйте ещё раз."}`);
+    }
+    return;
+  }
+  if (!a.confirmed) {
+    await editAll(a.msgs, `❌ Отклонено (${esc(a.by)}): сумма не совпала со счётом.`);
+    if (a.customer_chat) await edit(Number(a.customer_chat), Number(a.customer_msg), "❌ Сотрудник отметил, что сумма не совпадает со счётом.\nПроверь счёт и отсканируй QR ещё раз.");
+    return;
+  }
+  await editAll(a.msgs, [
+    `✅ <b>Чек проведён</b>${a.demo ? " · демо" : ""} · подтвердил(а) ${esc(a.by)}`,
+    ``,
+    `💵 Взять с клиента: <b>${som(a.cash)} сом</b>`,
+    `👤 ${esc(a.first_name)} · чек ${som(a.bill)} · списано ${a.redeem} · начислено +${a.earn}`,
+  ].join("\n"));
+  if (a.customer_chat) await edit(Number(a.customer_chat), Number(a.customer_msg), `✅ <b>Подтверждено!</b> К оплате: ${som(a.cash)} сом`);
+  await sendReceipts(a);
 }
 
 // ---------- fraud warnings ----------
@@ -246,6 +327,16 @@ async function maybeDailyReport() {
   ].join("\n"));
 }
 
+function stickerText(name: string, scan: string) {
+  const link = `${SITE}sticker.html#t=${scan}&n=${encodeURIComponent(name)}`;
+  return [
+    `🪧 <b>QR-наклейки для «${esc(name)}»</b>`,
+    ``,
+    `Откройте ссылку и распечатайте: большая наклейка — на кассу, маленькие — в счёт-книжки.`,
+    link,
+  ].join("\n");
+}
+
 // ---------- admin ----------
 async function adminCommand(chat: number, from: number, text: string) {
   if (text.startsWith("/addpartner")) {
@@ -267,6 +358,9 @@ async function adminCommand(chat: number, from: number, text: string) {
       ``,
       `Link for <b>cashiers</b> (owner can also get it later with /staff):`,
       `https://t.me/${BOT}?start=p_${p.staff_token}`,
+      ``,
+      `Printable QR stickers (counter + bill folders):`,
+      `${SITE}sticker.html#t=${p.scan_token}&n=${encodeURIComponent(p.name)}`,
     ].join("\n"));
     return true;
   }
@@ -381,6 +475,17 @@ Deno.serve(async (req) => {
         await finishBill(Number(a.cashier_chat), Number(a.cashier_msg), a);
         return new Response("ok");
       }
+      m = d.match(/^k([ar])\|([0-9a-f-]{36})$/);
+      if (m) { await answerClaim(chat, msgId, from, m[2], m[1] === "a"); return new Response("ok"); }
+      m = d.match(/^cs\|(\d+)\|(\d+(?:\.\d+)?)\|(\d+)$/);
+      if (m) { await createClaim(chat, from, Number(m[1]), Number(m[2]), Number(m[3]), msgId); return new Response("ok"); }
+      m = d.match(/^cc\|([0-9a-f-]{36})$/);
+      if (m) {
+        const r = await rpc("bk_claim_cancel", { p_tg: from, p_claim: m[1] });
+        if (r?.ok) { await edit(chat, msgId, "✖️ Отменено."); await editAll(r.msgs, "✖️ Клиент отменил запрос."); }
+        else await edit(chat, msgId, "Запрос уже обработан.");
+        return new Response("ok");
+      }
       if (d === "nc") {
         const code = await rpc("bk_new_card_code", { p_tg: from });
         await edit(chat, msgId, code ? `🔄 Готово! Новый код для кассы: <code>${code}</code>\nСтарый код больше не работает.` : "Не удалось сменить код.");
@@ -443,6 +548,23 @@ Deno.serve(async (req) => {
     // ---- deep links ----
     if (text.startsWith("/start")) {
       const payload = text.split(" ")[1]?.trim() ?? "";
+      if (payload.startsWith("s_")) {
+        const o = await rpc("bk_scan_open", { p_tg: from, p_token: payload.slice(2) });
+        if (o?.ok) {
+          await rpc("bk_state_set", { p_tg: from, p_state: "scan", p_data: { partner_id: o.partner_id, avail: o.available, pct: o.max_redeem_pct } });
+          await send(chat, [
+            `📍 <b>${esc(o.partner)}</b>${o.demo ? " · демо" : ""}`,
+            ``,
+            `Введи <b>сумму из счёта</b> в сомах, например <code>1200</code>`,
+            `Твой баланс: ${som(o.available)} ${pl(o.available)} · начислим ${Number(o.earn_pct)}% от оплаты`,
+          ].join("\n"), cancelKeyboard);
+        } else if (o?.err === "not_customer") {
+          await send(chat, `👋 Это QR-код Bishkekers в заведении <b>${esc(o.partner)}</b>.\n\nЧтобы копить баллы, запишись за 30 секунд и подтверди номер:\n${SITE}`, shareKeyboard);
+        } else {
+          await send(chat, "Этот QR-код больше не действует.");
+        }
+        return new Response("ok");
+      }
       if (payload.startsWith("p_")) {
         const name = [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(" ");
         const j = await rpc("bk_join_partner", { p_tg: from, p_token: payload.slice(2), p_name: name });
@@ -455,7 +577,9 @@ Deno.serve(async (req) => {
             `1. Нажмите «${K.till}»`,
             `2. Введите код клиента и сумму — можно одной строкой: <code>A3F9K2 1500</code>`,
             `3. «Без списания» — сразу готово. «Списать» — клиент подтвердит в своём Telegram за пару секунд.`,
-            j.role === "owner" ? `\nОтчёты: «${K.today}» и «${K.month}». Ссылка для кассиров: /staff` : ``,
+            ``,
+            `<b>Ещё проще:</b> клиент сам сканирует QR Bishkekers на кассе или в счёт-книжке и вводит сумму — вам придёт сообщение, нажмите ✅.`,
+            j.role === "owner" ? `\nОтчёты: «${K.today}» и «${K.month}». Сотрудники: /staff · QR-наклейки: /sticker` : ``,
           ].join("\n"), staffKeyboard);
         } else {
           await send(chat, "Ссылка недействительна. Свяжитесь с Bishkekers.");
@@ -536,6 +660,11 @@ Deno.serve(async (req) => {
         ].join("\n"), { reply_markup: { inline_keyboard: rows } });
         return new Response("ok");
       }
+      if (text === "/sticker" && staff.role === "owner") {
+        const o = await rpc("bk_owner_scan", { p_tg: from });
+        if (o) await send(chat, stickerText(o.name, o.scan_token), staffKeyboard);
+        return new Response("ok");
+      }
       const state = await rpc("bk_state_get", { p_tg: from });
       if (state?.state === "code") {
         const code = text.replace(/\s/g, "").toUpperCase();
@@ -550,6 +679,26 @@ Deno.serve(async (req) => {
         await tillPreview(chat, from, state.data.code, bill);
         return new Response("ok");
       }
+    }
+
+    // ---- customer: amount after scanning a partner QR ----
+    const cst = await rpc("bk_state_get", { p_tg: from });
+    if (cst?.state === "scan") {
+      const bill = Number(text.replace(/[^\d]/g, ""));
+      if (!bill || bill < 10 || bill > 100000) { await send(chat, "Введи сумму числом, например <code>1200</code>.", cancelKeyboard); return new Response("ok"); }
+      const pid = Number(cst.data.partner_id);
+      const max = Math.max(0, Math.min(Math.floor(Number(cst.data.avail)), Math.floor(bill * Number(cst.data.pct) / 100)));
+      if (max > 0) {
+        await rpc("bk_state_set", { p_tg: from, p_state: null, p_data: null });
+        await send(chat, `🧾 Чек <b>${som(bill)} сом</b>\nОплатить часть баллами?`, { reply_markup: { inline_keyboard: [
+          [{ text: `💳 Да, списать ${max} → заплачу ${som(bill - max)} сом`, callback_data: `cs|${pid}|${bill}|${max}` }],
+          [{ text: `Нет, копить → ${som(bill)} сом`, callback_data: `cs|${pid}|${bill}|0` }],
+        ] } });
+        await send(chat, "Выбери 👆", await homeKeyboard(from));
+      } else {
+        await createClaim(chat, from, pid, bill, 0);
+      }
+      return new Response("ok");
     }
 
     // ---- customer ----

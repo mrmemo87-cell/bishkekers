@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Bishkekers — QR-наклейки</title>
+<link rel="icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<script src="qr.js"></script>
+<style>
+:root{--navy:#15123B;--mid:#221D5C;--orange:#FF5B23;--cream:#FFF4E6;--yellow:#FFC93C}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Manrope,system-ui,sans-serif;background:#ECE7F5;color:var(--navy);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.bar{position:sticky;top:0;z-index:5;background:var(--navy);color:var(--cream);padding:14px 18px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.bar b{font-family:Unbounded,sans-serif;font-size:15px}
+.bar small{display:block;opacity:.7;font-weight:600;margin-top:2px}
+.bar button{font:800 15px Manrope,sans-serif;background:var(--orange);color:#fff;border:0;border-radius:999px;padding:12px 22px;cursor:pointer}
+.sheet{width:210mm;min-height:297mm;margin:18px auto;background:#fff;padding:8mm;display:grid;grid-template-columns:105mm 1fr;gap:6mm;box-shadow:0 10px 40px rgba(21,18,59,.15)}
+.hint{grid-column:1/-1;font-size:11px;color:#6b678c;font-weight:700;text-align:center}
+.cut{outline:1px dashed #c9c4dd;outline-offset:2mm}
+
+/* big counter sticker A6 */
+.big{width:105mm;height:148mm;border-radius:6mm;background:var(--navy);color:var(--cream);padding:8mm 8mm 7mm;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.big:before{content:"";position:absolute;width:90mm;height:90mm;border-radius:50%;background:var(--orange);opacity:.95;top:-48mm;right:-40mm}
+.big:after{content:"";position:absolute;width:9mm;height:9mm;border-radius:50%;background:var(--yellow);top:12mm;right:12mm}
+.brand{position:relative;z-index:1;display:flex;align-items:center;gap:3mm}
+.brand img{width:10mm;height:10mm;border-radius:2.5mm}
+.brand span{font:800 15pt Unbounded,sans-serif;letter-spacing:-.02em}
+.big h1{position:relative;z-index:1;font:800 21pt/1.02 Unbounded,sans-serif;letter-spacing:-.03em;margin:6mm 0 4mm}
+.big h1 em{font-style:normal;color:var(--yellow)}
+.qrbox{position:relative;z-index:1;background:#fff;border-radius:5mm;padding:4mm;width:56mm;height:56mm;align-self:center;box-shadow:0 0 0 2mm var(--orange)}
+.qrbox svg,.qrs svg{width:100%;height:100%;display:block}
+.steps{position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,1fr);gap:2mm;margin-top:auto;padding-top:5mm}
+.steps div{background:var(--mid);border-radius:3mm;padding:2.5mm 2mm;font-size:7.5pt;font-weight:700;line-height:1.2}
+.steps b{display:block;font:800 11pt Unbounded,sans-serif;color:var(--orange);margin-bottom:1mm}
+.place{position:relative;z-index:1;text-align:center;font-weight:800;font-size:9pt;opacity:.85;margin-top:3mm}
+
+/* small bill-folder stickers */
+.left{display:flex;flex-direction:column;gap:6mm}
+.smalls2{display:grid;grid-template-columns:1fr 1fr;gap:5mm}
+.smalls{display:grid;grid-template-columns:1fr 1fr;gap:5mm;align-content:start}
+.sm{height:68mm;border-radius:4mm;background:var(--cream);border:1.2mm solid var(--navy);padding:3.5mm;display:flex;flex-direction:column;align-items:center;text-align:center}
+.sm .t{font:800 9.5pt/1.05 Unbounded,sans-serif;letter-spacing:-.02em}
+.sm .t em{font-style:normal;color:var(--orange)}
+.qrs{width:36mm;height:36mm;margin:2.5mm 0;background:#fff;border-radius:2mm;padding:1.5mm}
+.sm .s{font-size:6.8pt;font-weight:800;line-height:1.25;color:var(--mid)}
+.sm .s i{font-style:normal;color:var(--orange)}
+.err{max-width:520px;margin:60px auto;background:#fff;border-radius:20px;padding:28px;font-weight:700;text-align:center}
+
+@media screen and (max-width:860px){
+  .sheet{transform-origin:top left;transform:scale(calc((100vw - 16px) / 794px));margin:8px;height:auto}
+  .wrap{height:calc(297mm * ((100vw - 16px) / 794px) + 24px);overflow:hidden}
+}
+@media print{
+  @page{size:A4;margin:0}
+  body{background:#fff}
+  .bar,.hint{display:none}
+  .sheet{margin:0;box-shadow:none}
+  .wrap{height:auto}
+}
+</style>
+</head>
+<body>
+<div class="bar">
+  <div><b id="ttl">QR-наклейки Bishkekers</b><small>Большая — на кассу · маленькие — в счёт-книжки (вырезать по пунктиру)</small></div>
+  <button onclick="window.print()">🖨 Распечатать (A4)</button>
+</div>
+<div id="root"></div>
+<script>
+(function(){
+  var h = new URLSearchParams(location.hash.slice(1));
+  var t = (h.get('t')||'').trim(), n = (h.get('n')||'').trim();
+  var root = document.getElementById('root');
+  if(!/^[0-9a-f]{12}$/.test(t)){
+    root.innerHTML = '<div class="err">Ссылка неполная. Откройте её заново из бота @bishkekers_bot (команда /sticker).</div>';
+    return;
+  }
+  var link = 'https://t.me/bishkekers_bot?start=s_' + t;
+  function svg(){ var q = qrcode(0,'M'); q.addData(link); q.make(); return q.createSvgTag({cellSize:4, margin:0, scalable:true}); }
+  if(n) document.getElementById('ttl').textContent = 'QR-наклейки · ' + n;
+
+  var one = '<div class="sm cut"><div class="t">Копи баллы<br><em>Bishkekers</em></div>'
+      + '<div class="qrs">'+svg()+'</div>'
+      + '<div class="s">Наведи камеру → введи сумму из счёта →<br><i>официант подтвердит</i></div></div>';
+  var small = one+one+one+one+one+one;
+  root.innerHTML = '<div class="wrap"><div class="sheet">'
+    + '<div class="left"><div class="big cut">'
+    +   '<div class="brand"><img src="icon.png" alt=""><span>Bishkekers</span></div>'
+    +   '<h1>Копи баллы<br>с этой <em>покупки</em></h1>'
+    +   '<div class="qrbox">'+svg()+'</div>'
+    +   '<div class="steps"><div><b>1</b>Наведи камеру на QR</div><div><b>2</b>Введи сумму чека</div><div><b>3</b>Мы подтвердим — баллы твои</div></div>'
+    +   '<div class="place" id="pl"></div>'
+    + '</div><div class="smalls2">'+one+one+'</div></div>'
+    + '<div class="smalls">'+small+'</div>'
+    + '<div class="hint">Печать: A4, масштаб 100%, без полей. Ссылка в QR ведёт в @bishkekers_bot.</div>'
+    + '</div></div>';
+  if(n) document.getElementById('pl').textContent = n + ' · партнёр Bishkekers';
+})();
+</script>
+</body>
+</html>
