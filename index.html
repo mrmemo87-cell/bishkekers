@@ -237,7 +237,8 @@ footer a{font-weight:800;color:var(--yellow);text-decoration:none}
             <select id="btype"><option>Кафе / ресторан</option><option>Кофейня</option><option>Аптека</option><option>Магазин / маркет</option><option>Цветы</option><option>Салон красоты</option><option>Одежда</option><option>Другое</option></select>
           </div>
           <label for="district">Район</label>
-          <select id="district"><option>Джал</option><option>Центр</option><option>Асанбай</option><option>Восток-5</option><option>Аламедин-1</option><option>Кок-Жар</option><option>Магистраль</option><option>Другой</option></select>
+          <select id="district"><option>Джал</option><option>Центр</option><option>Асанбай</option><option>Восток-5</option><option>Аламедин-1</option><option>Кок-Жар</option><option>Магистраль</option><option value="other">Другой</option></select>
+          <input id="districtOther" placeholder="Напиши свой район" maxlength="60" style="display:none;margin-top:10px">
           <button class="btn" id="go" type="submit">Записаться →</button>
           <div class="err" id="err"></div>
           <p class="note">Мы используем номер только чтобы сообщить о запуске и начислить баллы. Никакого спама.</p>
@@ -376,6 +377,14 @@ document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
   document.getElementById("go").textContent = kind === "business" ? "Стать партнёром →" : "Записаться →";
 });
 
+// "other" district → ask for the name
+const dSel = document.getElementById("district"), dOther = document.getElementById("districtOther");
+dSel.addEventListener("change", () => {
+  const on = dSel.value === "other";
+  dOther.style.display = on ? "block" : "none";
+  if (on) dOther.focus();
+});
+
 // phone mask
 const ph = document.getElementById("phone");
 ph.addEventListener("input", () => {
@@ -394,11 +403,13 @@ document.getElementById("f").addEventListener("submit", async e => {
   const digits = ph.value.replace(/\D/g, "");
   if (name.length < 2) { err.textContent = "Напиши своё имя."; return; }
   if (digits.length !== 9) { err.textContent = "Проверь номер: 9 цифр после +996."; return; }
+  const district = dSel.value === "other" ? dOther.value.trim() : dSel.value;
+  if (district.length < 2) { err.textContent = "Напиши название своего района."; dOther.focus(); return; }
   const go = document.getElementById("go"); go.disabled = true; go.textContent = "Секунду…";
   try {
     const r = await rpc("bk_signup", {
       p_kind: kind, p_name: name, p_phone: "+996" + digits,
-      p_district: document.getElementById("district").value,
+      p_district: district,
       p_business_name: kind === "business" ? document.getElementById("bname").value.trim() : null,
       p_business_type: kind === "business" ? document.getElementById("btype").value : null,
       p_ref: ref || null
