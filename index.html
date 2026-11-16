@@ -510,6 +510,7 @@ loadStats(); setInterval(loadStats, 30000);
 const params = new URLSearchParams(location.search);
 const ref = (params.get("ref") || "").trim().toUpperCase().slice(0, 12);
 if (ref) document.getElementById("refBadge").style.display = "block";
+try { if (params.get("utm_source")) sessionStorage.setItem("bk_src", params.get("utm_source")); } catch (_) {}
 
 // tabs
 let kind = "user";
@@ -669,6 +670,8 @@ function showDone(r) {
   if (kind === "business" && r.verify) {
     fetch(SB_URL + "/functions/v1/bishkekers-bot?biz=" + r.verify, { mode: "no-cors" }).catch(() => {});
   }
+  const src = (params.get("utm_source") || sessionStorage.getItem("bk_src") || "").slice(0, 30);
+  if (src && r.verify) rpc("bk_tag_source", { p_token: r.verify, p_source: src }).catch(() => {});
   const p = { verify: r.verify, code: r.code, kind, position: r.position };
   document.getElementById("pos").textContent = fmt(r.position);
   if (!r.verify) { showVerified(p, r.position); return; }   // already confirmed earlier
