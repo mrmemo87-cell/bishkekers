@@ -310,6 +310,8 @@ const FLAG: Record<string, string> = {
   night_bill: "🌙 Bill late at night",
   big_bill: "💰 Very large bill",
 };
+const SRC: Record<string, string> = { meta: "Meta ads", instagram: "Instagram", ig: "Instagram", telegram: "Telegram", tg: "Telegram", direct: "Direct / unknown" };
+const srcLines = (rows: any[]) => rows.map((x) => `• ${esc(SRC[x.source] ?? x.source)}: <b>${x.signups}</b> sign-ups, ${x.verified} confirmed`).join("\n");
 const flagLine = (f: any) => `${FLAG[f.kind] ?? f.kind}${f.partner ? " · " + esc(f.partner) : ""}${f.detail ? " · " + esc(f.detail) : ""}`;
 
 async function maybeDailyReport() {
@@ -322,6 +324,8 @@ async function maybeDailyReport() {
     `New verified users: <b>${r.new_users}</b> (total ${som(r.total_users)} / 10 000)`,
     `New business applications: <b>${r.new_business}</b>`,
     `Bills at partners: <b>${r.bills}</b> · ${som(r.sales)} som`,
+    ``,
+    ((r.sources ?? []) as any[]).length ? `📣 <b>Where sign-ups came from (24h):</b>\n` + srcLines(r.sources) : `📣 No new sign-ups in 24h.`,
     ``,
     flags.length ? `🚩 <b>${flags.length} warning(s):</b>\n` + flags.slice(0, 10).map(flagLine).join("\n") : `🚩 No warnings. 👌`,
   ].join("\n"));
@@ -384,6 +388,12 @@ async function adminCommand(chat: number, from: number, text: string) {
     await send(chat, ["🚩 <b>Latest warnings</b>", ""].concat((f as any[]).length ? (f as any[]).map(flagLine) : ["Nothing suspicious. 👌"]).join("\n"));
     return true;
   }
+  if (text === "/sources") {
+    const src = await rpc("bk_admin_sources", { p_admin: from });
+    if (!src) return false;
+    await send(chat, ["📣 <b>Sign-ups by source (all time)</b>", "", (src as any[]).length ? srcLines(src as any[]) : "No sign-ups yet."].join("\n"));
+    return true;
+  }
   if (text === "/admin") {
     const ok = await rpc("bk_admin_partners", { p_admin: from });
     if (!ok) return false;
@@ -393,6 +403,7 @@ async function adminCommand(chat: number, from: number, text: string) {
       "/partners — partners and this month's numbers",
       "/addpartner Name | food — add a partner, get owner + cashier links",
       "/flags — latest fraud warnings",
+      "/sources — where sign-ups came from (Meta ads, Instagram…)",
       "/resetdemo — clear demo till transactions",
     ].join("\n"));
     return true;
