@@ -7,7 +7,7 @@
 <meta name="description" content="Копи баллы и трать их в любимых местах Бишкека. Запишись первым — приветственные баллы ждут тебя.">
 <meta name="theme-color" content="#15123B">
 <meta property="og:title" content="Bishkekers — баллы и акции 1+1 в Бишкеке">
-<meta property="og:description" content="Запишись первым — приветственные баллы ждут тебя.">
+<meta property="og:description" content="Только до 30 ноября: 1000 приветственных баллов вместо 500. Запишись и подтверди номер.">
 <meta property="og:image" content="https://mrmemo87-cell.github.io/bishkekers/og.jpg">
 <meta property="og:url" content="https://mrmemo87-cell.github.io/bishkekers/">
 <meta property="og:type" content="website">
@@ -94,6 +94,42 @@ input:focus,select:focus{border-color:var(--orange)}
 .note{font-size:12.5px;opacity:.6;margin-top:14px;line-height:1.45}
 .err{color:#C42F00;font-weight:700;font-size:14px;margin-top:12px;min-height:1px}
 .ref-badge{display:none;margin-bottom:16px;background:var(--yellow);border-radius:14px;padding:12px 14px;font-weight:800;font-size:14px}
+
+/* ×2 PROMO */
+.promo{background:var(--mid);padding:70px 0 80px;position:relative;overflow:hidden}
+.promo:before{content:"";position:absolute;width:720px;height:720px;border-radius:50%;background:radial-gradient(circle,rgba(255,91,35,.35),transparent 65%);left:-260px;top:-260px}
+.promo .wrap{display:grid;grid-template-columns:1.05fr 1fr;gap:44px;align-items:center;position:relative}
+.promo h2{font-size:clamp(34px,5.4vw,62px);font-weight:800}
+.promo h2 s{color:rgba(255,244,230,.45);text-decoration-thickness:6px;text-decoration-color:var(--orange)}
+.promo h2 em{font-style:normal;color:var(--yellow)}
+.promo .lead2{font-weight:600;font-size:17px;line-height:1.5;opacity:.9;margin:16px 0 22px;max-width:470px}
+.cd{display:flex;gap:10px;margin:6px 0 24px}
+.cd div{background:var(--navy);border:2px solid rgba(255,244,230,.12);border-radius:16px;min-width:74px;padding:12px 8px;text-align:center}
+.cd b{display:block;font:800 30px Unbounded,system-ui,sans-serif;color:var(--yellow);font-variant-numeric:tabular-nums}
+.cd span{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;opacity:.7}
+.fine{font-size:13px;font-weight:600;opacity:.65;margin-top:14px;line-height:1.5;max-width:470px}
+/* voucher (original Bishkekers design — points, not money) */
+.vwrap{position:relative;transform:rotate(-4deg)}
+.voucher{position:relative;aspect-ratio:2.05/1;border-radius:18px;overflow:hidden;background:#FFF4E6;color:var(--navy);box-shadow:0 26px 60px rgba(0,0,0,.45),0 0 0 6px #FFF4E6,0 0 0 8px var(--orange)}
+.voucher svg.g{position:absolute;inset:0;width:100%;height:100%}
+.v-med{position:absolute;left:5%;top:14%;width:31%;aspect-ratio:1;border-radius:50%;background:var(--orange);display:grid;place-items:center;box-shadow:0 0 0 6px #FFF4E6,0 0 0 9px var(--navy)}
+.v-med svg{width:70%}
+.v-top{position:absolute;right:5%;top:9%;font:800 clamp(12px,1.8vw,16px)/1.25 Unbounded,system-ui,sans-serif;letter-spacing:.06em;text-align:right}.v-top small{display:block;font:800 clamp(8px,1.1vw,10px) Manrope,system-ui,sans-serif;letter-spacing:.16em;opacity:.7}
+.v-serial{position:absolute;right:5%;top:33%;font:700 clamp(11px,1.5vw,14px) ui-monospace,Menlo,monospace;color:#C42F00;letter-spacing:.08em}
+.v-amt{position:absolute;right:5%;bottom:16%;text-align:right}
+.v-amt b{display:block;font:800 clamp(48px,8.4vw,92px)/.9 Unbounded,system-ui,sans-serif;letter-spacing:-.04em;color:var(--navy)}
+.v-amt span{font:800 clamp(10px,1.5vw,14px) Manrope,system-ui,sans-serif;letter-spacing:.18em}
+.v-micro{position:absolute;left:0;right:0;bottom:4%;font:700 8px Manrope,system-ui,sans-serif;letter-spacing:.2em;white-space:nowrap;overflow:hidden;opacity:.55;text-align:center}
+.stamp{position:absolute;left:-24px;top:-46px;width:98px;height:98px;border-radius:50%;background:var(--orange);color:#fff;display:grid;place-items:center;text-align:center;
+  font:800 13px/1.1 Unbounded,system-ui,sans-serif;transform:rotate(14deg);box-shadow:0 10px 24px rgba(0,0,0,.35);border:4px dashed #FFF4E6;z-index:3;animation:stampIn .6s cubic-bezier(.2,1.6,.4,1) both}
+.stamp b{font-size:34px;display:block}
+@keyframes stampIn{from{transform:rotate(40deg) scale(2.2);opacity:0}to{transform:rotate(14deg) scale(1);opacity:1}}
+#scratch{position:absolute;inset:0;width:100%;height:100%;border-radius:18px;cursor:grab;touch-action:none;z-index:2}
+.hint{text-align:center;font-weight:800;font-size:14px;margin-top:22px;opacity:.85}
+.hint.ok{color:var(--yellow);opacity:1}
+.oldnew{display:inline-flex;align-items:baseline;gap:8px}
+.oldnew s{opacity:.55;text-decoration-color:var(--orange);text-decoration-thickness:3px}
+@media (max-width:860px){.promo .wrap{grid-template-columns:1fr}.vwrap{margin:10px 6px 0}.cd div{min-width:0;flex:1}}
 
 /* SUCCESS */
 .done{display:none;text-align:center}
@@ -220,7 +256,7 @@ footer a{font-weight:800;color:var(--yellow);text-decoration:none}
   <div class="stars" id="stars"></div>
   <div class="wrap hero-grid">
     <div>
-      <span class="pill" style="background:var(--orange)">Скоро в Бишкеке</span>
+      <a class="pill" href="#x2" style="background:var(--yellow);color:var(--navy);text-decoration:none" id="heroPill">🔥 ×2 до 30 ноября: 1000 баллов</a>
       <h1 style="margin-top:22px">Копи баллы.<br><em>Трать</em> в любимых местах.</h1>
       <p class="lead">Баллы и акции 1+1 в кафе, аптеках, цветочных и маркетах рядом с домом. Запишись сейчас — приветственные баллы будут ждать тебя на старте.</p>
       <a class="btn" href="#join">Хочу баллы →</a>
@@ -239,6 +275,34 @@ footer a{font-weight:800;color:var(--yellow);text-decoration:none}
     <path d="M700 60 L682 78 L694 76 L702 83 L712 74 L722 79 Z" fill="#FFF4E6"/>
   </svg>
 </header>
+
+<section class="promo" id="x2">
+  <div class="wrap">
+    <div class="rv">
+      <span class="pill" style="background:var(--yellow);color:var(--navy)">Только до 30 ноября</span>
+      <h2 style="margin-top:18px">Ноябрь <em>удваивает.</em><br><s>500</s> → <em>1000</em> баллов</h2>
+      <p class="lead2">Запишись и подтверди номер в Telegram до конца ноября — получишь <b>1000 приветственных баллов</b> вместо 500. Это до 1000 сом скидок у партнёров Bishkekers. Бесплатно.</p>
+      <div class="cd" id="cd"><div><b id="cdD">0</b><span>дней</span></div><div><b id="cdH">00</b><span>часов</span></div><div><b id="cdM">00</b><span>минут</span></div><div><b id="cdS">00</b><span>секунд</span></div></div>
+      <a class="btn" href="#join">Забрать 1000 баллов →</a>
+      <p class="fine">1 балл = 1 сом скидки. Баллы откроются, когда нас станет 10 000, и действуют 60 дней. Оплатить баллами можно до 10% чека в кафе и до 5% в аптеках и маркетах. Баллы — не деньги.</p>
+    </div>
+    <div class="rv">
+      <div class="vwrap">
+        <div class="stamp"><div><b>×2</b>до 30.11</div></div>
+        <div class="voucher" id="voucher">
+          <svg class="g" viewBox="0 0 410 200" preserveAspectRatio="none" aria-hidden="true" id="guil"></svg>
+          <div class="v-med"><svg viewBox="0 0 200 200"><path d="M66 38 h40 c21 0 34 10 34 27 c0 11 -6 19 -16 22 c13 3 21 12 21 26 c0 19 -15 31 -38 31 h-41 Z M87 56 v23 h16 c9 0 14 -4 14 -12 c0 -7 -5 -11 -14 -11 Z M87 96 v27 h19 c10 0 16 -5 16 -14 c0 -9 -6 -13 -16 -13 Z" fill="#FFF4E6" fill-rule="evenodd"/><path d="M155 30 l5 11 l12 1 l-9 8 l3 12 l-11 -6 l-11 6 l3 -12 l-9 -8 l12 -1 Z" fill="#FFC93C"/></svg></div>
+          <div class="v-top">BISHKEKERS<small>ПРИВЕТСТВЕННЫЕ БАЛЛЫ</small></div>
+          <div class="v-serial">BK·11·2026·×2</div>
+          <div class="v-amt"><b>1000</b><span>БАЛЛОВ</span></div>
+          <div class="v-micro">БАЛЛЫ НЕ ДЕНЬГИ · 1 БАЛЛ = 1 СОМ СКИДКИ · BISHKEKERS · БАЛЛЫ НЕ ДЕНЬГИ · 1 БАЛЛ = 1 СОМ СКИДКИ · BISHKEKERS · БАЛЛЫ НЕ ДЕНЬГИ</div>
+          <canvas id="scratch"></canvas>
+        </div>
+      </div>
+      <p class="hint" id="hint">👆 Сотри пальцем — узнай свой бонус</p>
+    </div>
+  </div>
+</section>
 
 <section class="counter">
   <div class="wrap">
@@ -266,7 +330,7 @@ footer a{font-weight:800;color:var(--yellow);text-decoration:none}
       <span class="pill" style="background:var(--navy);color:var(--cream)">Список первых</span>
       <h2 style="margin-top:20px">Запишись — и&nbsp;будь в&nbsp;числе первых</h2>
       <ul class="perks">
-        <li><i>★</i>500 приветственных баллов на старте</li>
+        <li><i>★</i><span><span class="oldnew x2only"><s>500</s></span> <b class="wp">1000</b> приветственных баллов<span class="x2only"> — только до 30 ноября</span></span></li>
         <li><i>1+1</i>Первым узнаешь об акциях 1+1</li>
         <li><i>🎁</i>Личная ссылка: зови друзей</li>
         <li><i>🔒</i>Без спама и без оплаты</li>
@@ -306,13 +370,13 @@ footer a{font-weight:800;color:var(--yellow);text-decoration:none}
         <div class="pend">
           <span class="p-tag"><i></i>Шаг 2 из 2 · не завершено</span>
           <div class="p-h">Ты ещё <em>не</em> в списке</div>
-          <p class="p-sub" id="pSub">Заявка сохранена, но без подтверждения номера она не засчитается: ни места в очереди, ни 500 баллов.</p>
+          <p class="p-sub" id="pSub">Заявка сохранена, но без подтверждения номера она не засчитается: ни места в очереди, ни <span class="wp">1000</span> баллов.</p>
           <div class="prog"><div class="ok">✓ 1. Заявка</div><div class="no">✕ 2. Telegram</div></div>
           <div class="locked">
             <div class="ticket">
               <div style="font-weight:700;opacity:.8">Твоё место</div>
               <div class="pos">#???</div>
-              <div class="code">500 баллов</div>
+              <div class="code"><span class="wp">1000</span> баллов</div>
             </div>
             <div class="lockov"><div class="lockic">🔒</div><b id="lockT">Откроется через 10 секунд</b><span id="lockS">после подтверждения номера</span></div>
           </div>
@@ -384,7 +448,7 @@ footer a{font-weight:800;color:var(--yellow);text-decoration:none}
     <span class="pill rv" style="background:var(--orange);color:var(--cream)">Без мелкого шрифта</span>
     <h2 class="rv" style="margin-top:18px">Честно о баллах</h2>
     <details class="rv"><summary>Сколько стоит регистрация?</summary><p>Нисколько. Регистрация бесплатная.</p></details>
-    <details class="rv"><summary>Сколько баллов я получу?</summary><p><b>500 приветственных баллов</b> после подтверждения номера в Telegram. Они откроются, когда нас станет 10 000, и действуют <b>60 дней</b> после открытия.</p></details>
+    <details class="rv"><summary>Сколько баллов я получу?</summary><p><b><span class="wp">1000</span> приветственных баллов</b> после подтверждения номера в Telegram<span class="x2only"> (в ноябре — двойной бонус: 1000 вместо 500 для всех, кто подтвердит номер до 30 ноября включительно)</span>. Они откроются, когда нас станет 10 000, и действуют <b>60 дней</b> после открытия.</p></details>
     <details class="rv"><summary>Сколько стоит 1 балл?</summary><p><b>1 балл = 1 сом скидки</b> у партнёров Bishkekers. Баллы — это не деньги: их нельзя вывести или обменять на наличные.</p></details>
     <details class="rv"><summary>Как копить баллы?</summary><p>Отсканируй QR Bishkekers на кассе или в счёт-книжке партнёра и введи сумму из счёта — официант или кассир подтвердит одной кнопкой. Нет QR рядом? Назови кассиру свой код из бота @bishkekers_bot. В кафе, ресторанах, салонах и цветочных ты получаешь <b>5%</b> от суммы покупки баллами, в аптеках и маркетах — <b>1%</b>. Накопленные баллы действуют 12 месяцев.</p></details>
     <details class="rv"><summary>Сколько баллов можно потратить за раз?</summary><p>Баллами можно оплатить до <b>10% чека</b> в кафе, ресторанах, салонах и цветочных и до <b>5% чека</b> в аптеках и маркетах. Остальное — как обычно.</p></details>
@@ -616,6 +680,92 @@ function showDone(r) {
 (function () {
   const p = readPending();
   if (p && p.verify) { kind = p.kind || "user"; showPending(p, false); checkStatus(p); }
+})();
+
+// ---------- ×2 promo: real deadline from the server, auto-off after it ----------
+const PROMO_END_FALLBACK = new Date("2026-12-01T00:00:00+06:00");
+function applyPromo(p) {
+  const on = !!p.active;
+  document.querySelectorAll(".wp").forEach(e => e.textContent = fmt(p.points));
+  document.querySelectorAll(".x2only").forEach(e => e.style.display = on ? "" : "none");
+  document.getElementById("x2").style.display = on ? "" : "none";
+  const hp = document.getElementById("heroPill");
+  if (!on) { hp.textContent = "Скоро в Бишкеке"; hp.style.background = "var(--orange)"; hp.style.color = "var(--cream)"; }
+  if (on) startCountdown(new Date(p.until.replace(" ", "T").replace(/\+06$/, "+06:00")));
+}
+let cdT = null;
+function startCountdown(end) {
+  if (isNaN(end)) end = PROMO_END_FALLBACK;
+  const pad = n => String(n).padStart(2, "0");
+  const tick = () => {
+    let ms = end - Date.now();
+    if (ms <= 0) { clearInterval(cdT); applyPromo({ active: false, points: 500 }); return; }
+    const d = Math.floor(ms / 864e5); ms -= d * 864e5;
+    const h = Math.floor(ms / 36e5); ms -= h * 36e5;
+    const m = Math.floor(ms / 6e4); const s = Math.floor((ms - m * 6e4) / 1000);
+    document.getElementById("cdD").textContent = d; document.getElementById("cdH").textContent = pad(h);
+    document.getElementById("cdM").textContent = pad(m); document.getElementById("cdS").textContent = pad(s);
+  };
+  clearInterval(cdT); tick(); cdT = setInterval(tick, 1000);
+}
+applyPromo({ active: Date.now() < PROMO_END_FALLBACK, points: Date.now() < PROMO_END_FALLBACK ? 1000 : 500, until: "2026-12-01 00:00:00+06" });
+rpc("bk_promo").then(applyPromo).catch(() => {});
+
+// guilloche pattern for the voucher (drawn, not copied from any banknote)
+(function () {
+  const g = document.getElementById("guil"); let h = "";
+  for (let k = 0; k < 14; k++) {
+    let d = "M0 " + (20 + k * 12);
+    for (let x = 0; x <= 410; x += 6) d += " L" + x + " " + (20 + k * 12 + Math.sin(x / 18 + k * .7) * 6 + Math.sin(x / 47 + k) * 4).toFixed(1);
+    h += '<path d="' + d + '" fill="none" stroke="' + (k % 3 ? "#FFC93C" : "#FF5B23") + '" stroke-opacity=".35" stroke-width="1"/>';
+  }
+  for (let r = 18; r < 70; r += 6) h += '<circle cx="85" cy="100" r="' + r + '" fill="none" stroke="#15123B" stroke-opacity=".08"/>';
+  g.innerHTML = h;
+})();
+
+// scratch-to-reveal
+(function () {
+  const c = document.getElementById("scratch"), v = document.getElementById("voucher"), hint = document.getElementById("hint");
+  const x = c.getContext("2d"); let done = false, down = false;
+  function paint() {
+    const r = v.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
+    c.width = r.width * dpr; c.height = r.height * dpr; x.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const gr = x.createLinearGradient(0, 0, r.width, r.height);
+    gr.addColorStop(0, "#B9B4C9"); gr.addColorStop(.5, "#E9E6F2"); gr.addColorStop(1, "#A9A3BD");
+    x.fillStyle = gr; x.fillRect(0, 0, r.width, r.height);
+    x.fillStyle = "rgba(21,18,59,.18)";
+    for (let i = 0; i < 260; i++) x.fillRect(Math.random() * r.width, Math.random() * r.height, 2, 2);
+    x.fillStyle = "#15123B"; x.font = "800 " + Math.round(r.width / 14) + "px Unbounded, sans-serif"; x.textAlign = "center";
+    x.fillText("СОТРИ МЕНЯ", r.width / 2, r.height / 2 + r.width / 40);
+    x.globalCompositeOperation = "destination-out";
+  }
+  function scratch(e) {
+    if (!down || done) return;
+    const r = c.getBoundingClientRect(), p = e.touches ? e.touches[0] : e;
+    x.beginPath(); x.arc(p.clientX - r.left, p.clientY - r.top, Math.max(18, r.width / 16), 0, 7); x.fill();
+    e.preventDefault();
+  }
+  function check() {
+    if (done) return;
+    const d = x.getImageData(0, 0, c.width, c.height).data; let clear = 0;
+    for (let i = 3; i < d.length; i += 64) if (d[i] === 0) clear++;
+    if (clear / (d.length / 64) > .42) {
+      done = true; c.style.transition = "opacity .5s"; c.style.opacity = 0; setTimeout(() => c.remove(), 600);
+      hint.textContent = "🎉 1000 баллов — твои. Осталось записаться ↓"; hint.classList.add("ok"); burst();
+    }
+  }
+  c.addEventListener("pointerdown", e => { down = true; scratch(e); });
+  c.addEventListener("pointermove", scratch);
+  addEventListener("pointerup", () => { if (down) { down = false; check(); } });
+  c.addEventListener("touchstart", e => { down = true; scratch(e); }, { passive: false });
+  c.addEventListener("touchmove", scratch, { passive: false });
+  c.addEventListener("touchend", () => { down = false; check(); });
+  let touched = false;
+  c.addEventListener("pointerdown", () => touched = true);
+  c.addEventListener("touchstart", () => touched = true, { passive: true });
+  paint();
+  if (document.fonts) document.fonts.ready.then(() => { if (!touched) paint(); });
+  let rw = innerWidth; addEventListener("resize", () => { if (!done && !touched && innerWidth !== rw) { rw = innerWidth; paint(); } });
 })();
 
 // confetti
