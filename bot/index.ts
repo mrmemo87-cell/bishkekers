@@ -48,6 +48,46 @@ const staffKeyboard = {
 };
 const cardButtons = { reply_markup: { inline_keyboard: [[{ text: "🔄 Новый код для кассы", callback_data: "nc" }]] } };
 const cancelKeyboard = { reply_markup: { keyboard: [[{ text: K.cancel }]], resize_keyboard: true } };
+const joinShareKeyboard = {
+  reply_markup: { keyboard: [[{ text: "📱 Поделиться номером", request_contact: true }]], resize_keyboard: true, one_time_keyboard: true },
+};
+const SAFE = "🔒 Мы никогда не просим коды из SMS или Telegram, пароли или данные карты.";
+
+// ---------- sign-up inside Telegram: step 1 (rules) -> step 2 (share number) ----------
+async function joinStep1(chat: number, from: number, src: string | null, ref: string | null) {
+  await rpc("bk_bot_intent", { p_tg: from, p_source: src, p_ref: ref });
+  const promo = await rpc("bk_promo");
+  const st = await rpc("bk_stats");
+  const pts = Number(promo?.points ?? 500);
+  await send(chat, [
+    `👋 <b>Привет! Это Bishkekers</b> — баллы и скидки в кафе, цветочных, аптеках и маркетах Бишкека.`,
+    ``,
+    promo?.active ? `🔥 До 30 ноября: <b>${som(pts)} приветственных баллов</b> вместо ${som(promo.base)}.` : `🎁 <b>${som(pts)} приветственных баллов</b> за запись.`,
+    `1 балл = 1 сом скидки у партнёров. Бесплатно.`,
+    `<i>Приветственные баллы откроются, когда нас станет 10 000 (сейчас ${som(st?.users ?? 0)}). Баллы за покупки — сразу.</i>`,
+    ``,
+    `<b>Запись — 2 шага, прямо здесь:</b>`,
+    `1️⃣ Согласиться с правилами`,
+    `2️⃣ Поделиться номером одной кнопкой`,
+    ``,
+    SAFE,
+  ].join("\n"), { reply_markup: { inline_keyboard: [
+    [{ text: "✅ Согласен(на) с правилами — дальше", callback_data: "jy" }],
+    [{ text: "📄 Правила баллов", url: `${SITE}#faq` }, { text: "🔐 Конфиденциальность", url: `${SITE}privacy.html` }],
+  ] } });
+}
+
+async function joinStep2(chat: number) {
+  await send(chat, [
+    `<b>Шаг 2 из 2 — номер телефона</b>`,
+    ``,
+    `Нажми кнопку <b>«📱 Поделиться номером»</b> внизу экрана 👇`,
+    `Telegram спросит, можно ли отправить твой номер Bishkekers — нажми <b>«OK»</b>.`,
+    ``,
+    `Мы получим только номер и имя из Telegram. Не переписку и не контакты.`,
+    `Номер нужен, чтобы у каждого была только одна карта.`,
+  ].join("\n"), joinShareKeyboard);
+}
 
 async function homeKeyboard(tgId: number) {
   const st = await rpc("bk_staff", { p_tg: tgId });
@@ -462,6 +502,13 @@ Deno.serve(async (req) => {
       await tg("answerCallbackQuery", { callback_query_id: cq.id });
       const d = String(cq.data ?? "");
       if (d === "x") { await edit(chat, msgId, "✖️ Чек отменён."); return new Response("ok"); }
+      if (d === "jy") {
+        if (await rpc("bk_card", { p_tg: from })) { await edit(chat, msgId, "Ты уже в Bishkekers ✅"); await send(chat, "Твоя карта — в меню 👇", await homeKeyboard(from)); return new Response("ok"); }
+        await rpc("bk_bot_consent", { p_tg: from });
+        await edit(chat, msgId, "✅ <b>Шаг 1 из 2 — готово.</b> Ты согласился(лась) с правилами.");
+        await joinStep2(chat);
+        return new Response("ok");
+      }
       let m = d.match(/^e\|([A-Z0-9]{6})\|(\d+(?:\.\d+)?)$/);
       if (m) { await edit(chat, msgId, "⏳ Проводим чек…"); await tillEarn(chat, msgId, from, m[1], Number(m[2])); return new Response("ok"); }
       m = d.match(/^r\|([A-Z0-9]{6})\|(\d+(?:\.\d+)?)\|(\d+)$/);
@@ -527,15 +574,32 @@ Deno.serve(async (req) => {
         await send(chat, "Пожалуйста, отправь <b>свой</b> номер — нажми кнопку ниже 👇", shareKeyboard);
         return new Response("ok");
       }
-      const r = await rpc("bk_tg_contact", { p_tg: from, p_phone: msg.contact.phone_number });
+      let r = await rpc("bk_tg_contact", { p_tg: from, p_phone: msg.contact.phone_number });
+      if (r?.reason === "no_signup") {
+        if (await rpc("bk_card", { p_tg: from })) {
+          await send(chat, `Ты уже в Bishkekers ✅`, await homeKeyboard(from));
+          return new Response("ok");
+        }
+        const nm = [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(" ");
+        r = await rpc("bk_bot_join", { p_tg: from, p_name: nm, p_phone: msg.contact.phone_number });
+        if (r?.reason === "no_consent") {
+          await send(chat, "Сначала шаг 1 — согласие с правилами 👇", { reply_markup: { remove_keyboard: true } });
+          await joinStep1(chat, from, null, null);
+          return new Response("ok");
+        }
+        if (r?.reason === "busy") {
+          await send(chat, "Сейчас много записей одновременно. Нажми кнопку ещё раз через минуту 🙏", joinShareKeyboard);
+          return new Response("ok");
+        }
+      }
       if (r?.ok) {
-        const link = `${SITE}?ref=${r.code}`;
+        const link = `https://t.me/${BOT}?start=j-ref-${r.code}`;
         if (r.already) {
           await send(chat, `Твой номер уже подтверждён ✅`, await homeKeyboard(from));
         } else if (r.kind === "business") {
           await send(chat, `Готово, номер подтверждён ✅\n\nСпасибо за заявку! Мы свяжемся с вами в ближайшее время.`, await homeKeyboard(from));
         } else {
-          await send(chat, `Готово, ${esc(r.name)}! Номер подтверждён ✅\nТы засчитан в счётчик 🎉`, await homeKeyboard(from));
+          await send(chat, `🎉 <b>Готово, ${esc(r.name)}! Ты в Bishkekers.</b>\nНомер подтверждён ✅ Ниже — твоя карта.`, await homeKeyboard(from));
           const c = await rpc("bk_card", { p_tg: from });
           if (c) await send(chat, cardText(c));
           await send(chat, `Зови друзей — бонус получите оба:\n${link}`);
@@ -549,7 +613,8 @@ Deno.serve(async (req) => {
       } else if (r?.reason === "phone_taken") {
         await send(chat, "Этот номер уже записан в Bishkekers. Если это ошибка — напиши нам в Instagram @bishkekers.");
       } else {
-        await send(chat, `Сначала запишись на сайте, а потом нажми там «Подтвердить в Telegram»:\n${SITE}`, { reply_markup: { remove_keyboard: true } });
+        await send(chat, "Что-то пошло не так. Давай начнём заново 👇", { reply_markup: { remove_keyboard: true } });
+        await joinStep1(chat, from, null, null);
       }
       return new Response("ok");
     }
@@ -570,7 +635,8 @@ Deno.serve(async (req) => {
             `Твой баланс: ${som(o.available)} ${pl(o.available)} · начислим ${Number(o.earn_pct)}% от оплаты`,
           ].join("\n"), cancelKeyboard);
         } else if (o?.err === "not_customer") {
-          await send(chat, `👋 Это QR-код Bishkekers в заведении <b>${esc(o.partner)}</b>.\n\nЧтобы копить баллы, запишись за 30 секунд и подтверди номер:\n${SITE}`, shareKeyboard);
+          await send(chat, `👋 Это QR-код Bishkekers в заведении <b>${esc(o.partner)}</b>.\nЧтобы копить здесь баллы, запишись — это 2 шага прямо тут 👇`);
+          await joinStep1(chat, from, "qr", null);
         } else {
           await send(chat, "Этот QR-код больше не действует.");
         }
@@ -597,6 +663,13 @@ Deno.serve(async (req) => {
         }
         return new Response("ok");
       }
+      if (payload === "j" || payload.startsWith("j-")) {
+        const c0 = await rpc("bk_card", { p_tg: from });
+        if (c0) { await send(chat, `С возвращением, ${esc(c0.name)}! 👋`, await homeKeyboard(from)); await send(chat, cardText(c0), cardButtons); return new Response("ok"); }
+        const parts = payload.split("-");
+        await joinStep1(chat, from, parts[1] || null, parts[2] || null);
+        return new Response("ok");
+      }
       if (/^[0-9a-f]{24}$/.test(payload)) {
         const r = await rpc("bk_tg_start", { p_tg: from, p_token: payload });
         if (r?.found && r.verified) {
@@ -617,7 +690,7 @@ Deno.serve(async (req) => {
       } else {
         const st = await rpc("bk_staff", { p_tg: from });
         if (st) await send(chat, `Заведение: <b>${esc(st.partner)}</b>. Нажмите «${K.till}», чтобы провести чек.`, staffKeyboard);
-        else await send(chat, `Привет! Это Bishkekers — баллы и акции 1+1 в Бишкеке 🧡\n\nЕсли ты уже записался на сайте, нажми кнопку ниже, чтобы подтвердить номер. Если ещё нет — вот ссылка:\n${SITE}`, shareKeyboard);
+        else await joinStep1(chat, from, payload || null, null);
       }
       return new Response("ok");
     }
@@ -716,7 +789,7 @@ Deno.serve(async (req) => {
     if (text === K.card || text === "/card") {
       const c = await rpc("bk_card", { p_tg: from });
       if (c) await send(chat, cardText(c), cardButtons);
-      else await send(chat, `Сначала запишись и подтверди номер:\n${SITE}`, shareKeyboard);
+      else await joinStep1(chat, from, null, null);
       return new Response("ok");
     }
     if (text === K.history || text === "/history") {
@@ -725,8 +798,8 @@ Deno.serve(async (req) => {
     }
     if (text === K.invite || text === "/invite") {
       const c = await rpc("bk_card", { p_tg: from });
-      if (!c) { await send(chat, `Сначала запишись:\n${SITE}`); return new Response("ok"); }
-      const link = `${SITE}?ref=${c.ref}`;
+      if (!c) { await joinStep1(chat, from, null, null); return new Response("ok"); }
+      const link = `https://t.me/${BOT}?start=j-ref-${c.ref}`;
       await send(chat, `🎁 <b>Пригласи друга — получите по 100 баллов оба</b>\nБонус начисляется после первой покупки друга у партнёра.\n\nТвоя ссылка:\n${link}`, {
         reply_markup: { inline_keyboard: [[{ text: "📨 Отправить другу", url: `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Баллы и акции 1+1 в Бишкеке — записывайся, бонус получим оба!")}` }]] },
       });
@@ -747,7 +820,7 @@ Deno.serve(async (req) => {
     // fallback
     const c = await rpc("bk_card", { p_tg: from });
     if (c) await send(chat, "Выбери действие в меню 👇", await homeKeyboard(from));
-    else await send(chat, `Чтобы подтвердить номер, нажми кнопку ниже 👇\nСайт: ${SITE}`, shareKeyboard);
+    else await joinStep1(chat, from, null, null);
   } catch (_e) {
     // never make Telegram retry forever
   }

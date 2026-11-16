@@ -90,6 +90,10 @@ input:focus,select:focus{border-color:var(--orange)}
 .consent input{flex:none;width:22px;height:22px;margin:1px 0 0;accent-color:var(--orange);padding:0}
 .consent a{color:var(--orange);font-weight:800}
 .biz{display:none}.form.is-biz .biz{display:block}
+.form:not(.is-biz) #f{display:none}.form.is-biz .tgjoin{display:none}
+.tj-h{font:800 19px Unbounded,system-ui,sans-serif;line-height:1.25;margin-bottom:4px}
+.tgjoin .mini{margin:16px 0 20px}.tgjoin .mini li{align-items:flex-start;font-weight:600;line-height:1.4}
+.tj-safe{margin-top:16px;background:var(--cream);border-radius:14px;padding:12px 14px;font-weight:700;font-size:13.5px;line-height:1.45}
 .form .btn{width:100%;margin-top:24px}
 .note{font-size:12.5px;opacity:.6;margin-top:14px;line-height:1.45}
 .err{color:#C42F00;font-weight:700;font-size:14px;margin-top:12px;min-height:1px}
@@ -344,6 +348,18 @@ footer a{font-weight:800;color:var(--yellow);text-decoration:none}
           <button type="button" class="on" data-k="user">Я житель</button>
           <button type="button" data-k="business">У меня бизнес</button>
         </div>
+        <div class="tgjoin">
+          <p class="tj-h">Запись — прямо в Telegram</p>
+          <p style="opacity:.75;font-weight:600">Без форм и без кодов. Вот что будет:</p>
+          <ol class="mini">
+            <li><span>Нажми синюю кнопку — откроется наш бот <b>@bishkekers_bot</b>. Нажми «Старт».</span></li>
+            <li><span>Бот покажет правила. Нажми <b>«Согласен(на)»</b>.</span></li>
+            <li><span>Нажми <b>«📱 Поделиться номером»</b>. Telegram сам спросит разрешение — нажми «OK». Готово!</span></li>
+          </ol>
+          <a class="bigtg" id="tgJoinBtn" href="https://t.me/bishkekers_bot?start=j" target="_blank" rel="noopener"><svg width="24" height="24" viewBox="0 0 24 24" fill="#fff"><path d="M9.8 15.2l-.4 5.4c.6 0 .9-.3 1.2-.6l2.9-2.8 6 4.4c1.1.6 1.9.3 2.2-1L24 3.7c.4-1.6-.6-2.2-1.6-1.8L1 10.3c-1.5.6-1.5 1.5-.3 1.9l5.5 1.7L18.9 6c.6-.4 1.2-.2.7.3"/></svg>Записаться в Telegram</a>
+          <p class="tj-safe">🔒 Мы никогда не просим коды из SMS или Telegram, пароли или данные карты. Ничего не нужно вводить — только кнопки.</p>
+          <p class="note">Номер не передаётся заведениям. <a href="privacy.html" target="_blank">Политика конфиденциальности</a></p>
+        </div>
         <form id="f" novalidate>
           <label for="name" id="nameLbl">Имя</label>
           <input id="name" autocomplete="given-name" placeholder="Как тебя зовут?" maxlength="80" required>
@@ -443,11 +459,12 @@ footer a{font-weight:800;color:var(--yellow);text-decoration:none}
   </div>
 </section>
 
-<section class="faq">
+<section class="faq" id="faq">
   <div class="wrap">
     <span class="pill rv" style="background:var(--orange);color:var(--cream)">Без мелкого шрифта</span>
     <h2 class="rv" style="margin-top:18px">Честно о баллах</h2>
     <details class="rv"><summary>Сколько стоит регистрация?</summary><p>Нисколько. Регистрация бесплатная.</p></details>
+    <details class="rv"><summary>Почему запись через Telegram? Это безопасно?</summary><p>Да. Ты записываешься прямо в нашем официальном боте <b>@bishkekers_bot</b>: нажимаешь «Согласен(на)» и «Поделиться номером». Telegram сам показывает окно с разрешением — мы получаем только твой номер и имя, без переписки и контактов. Номер нужен, чтобы у каждого была одна карта. <b>Мы никогда не просим коды из SMS или Telegram, пароли или данные карты.</b> Если кто-то просит — это не мы.</p></details>
     <details class="rv"><summary>Сколько баллов я получу?</summary><p><b><span class="wp">1000</span> приветственных баллов</b> после подтверждения номера в Telegram<span class="x2only"> (в ноябре — двойной бонус: 1000 вместо 500 для всех, кто подтвердит номер до 30 ноября включительно)</span>. Они откроются, когда нас станет 10 000, и действуют <b>60 дней</b> после открытия.</p></details>
     <details class="rv"><summary>Сколько стоит 1 балл?</summary><p><b>1 балл = 1 сом скидки</b> у партнёров Bishkekers. Баллы — это не деньги: их нельзя вывести или обменять на наличные.</p></details>
     <details class="rv"><summary>Как копить баллы?</summary><p>Отсканируй QR Bishkekers на кассе или в счёт-книжке партнёра и введи сумму из счёта — официант или кассир подтвердит одной кнопкой. Нет QR рядом? Назови кассиру свой код из бота @bishkekers_bot. В кафе, ресторанах, салонах и цветочных ты получаешь <b>5%</b> от суммы покупки баллами, в аптеках и маркетах — <b>1%</b>. Накопленные баллы действуют 12 месяцев.</p></details>
@@ -511,6 +528,12 @@ const params = new URLSearchParams(location.search);
 const ref = (params.get("ref") || "").trim().toUpperCase().slice(0, 12);
 if (ref) document.getElementById("refBadge").style.display = "block";
 try { if (params.get("utm_source")) sessionStorage.setItem("bk_src", params.get("utm_source")); } catch (_) {}
+(function () {
+  let src = params.get("utm_source") || ""; try { src = src || sessionStorage.getItem("bk_src") || ""; } catch (_) {}
+  src = src.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 20) || "site";
+  const r = ref.replace(/[^A-Z0-9]/g, "").slice(0, 12);
+  document.getElementById("tgJoinBtn").href = "https://t.me/bishkekers_bot?start=j-" + src + (r ? "-" + r : "");
+})();
 
 // tabs
 let kind = "user";
