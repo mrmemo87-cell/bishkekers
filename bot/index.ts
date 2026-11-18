@@ -800,8 +800,8 @@ Deno.serve(async (req) => {
       const c = await rpc("bk_card", { p_tg: from });
       if (!c) { await joinStep1(chat, from, null, null); return new Response("ok"); }
       const link = `https://t.me/${BOT}?start=j-ref-${c.ref}`;
-      await send(chat, `🎁 <b>Пригласи друга — получите по 100 баллов оба</b>\nБонус начисляется после первой покупки друга у партнёра.\n\nТвоя ссылка:\n${link}`, {
-        reply_markup: { inline_keyboard: [[{ text: "📨 Отправить другу", url: `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Баллы и акции 1+1 в Бишкеке — записывайся, бонус получим оба!")}` }]] },
+      await send(chat, `🎁 <b>Пригласи друга — получите по 100 баллов оба</b>\nБонус начисляется после первой покупки друга у партнёра.\n\n${Number(c.invited) > 0 ? `👥 По твоей ссылке уже с нами: <b>${c.invited}</b>` : `Отправь тем, кто живёт рядом: семье, соседям, коллегам.`}\n\nТвоя ссылка:\n${link}`, {
+        reply_markup: { inline_keyboard: [[{ text: "📨 Отправить семье и друзьям", url: `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Я коплю баллы в Bishkekers — в кафе и магазинах рядом с домом. Записывайся по моей ссылке: по 100 баллов получим оба.")}` }]] },
       });
       return new Response("ok");
     }
